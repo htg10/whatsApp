@@ -90,6 +90,29 @@ export const api = {
     disconnect: (token: string, id: string) =>
       request<{ message: string }>(`/whatsapp/numbers/${id}`, { method: "DELETE", token }),
   },
+
+  inbox: {
+    conversations: (token: string, params?: { status?: string; search?: string; page?: number }) => {
+      const qs = new URLSearchParams();
+      if (params?.status) qs.set("status", params.status);
+      if (params?.search) qs.set("search", params.search);
+      if (params?.page) qs.set("page", String(params.page));
+      const q = qs.toString();
+      return request<{ conversations: Conversation[]; meta: { current_page: number; last_page: number; total: number } }>(
+        `/whatsapp/conversations${q ? `?${q}` : ""}`, { token }
+      );
+    },
+    messages: (token: string, conversationId: string, cursor?: string) => {
+      const qs = cursor ? `?cursor=${cursor}` : "";
+      return request<{ messages: InboxMessage[]; next_cursor: string | null; has_more: boolean }>(
+        `/whatsapp/conversations/${conversationId}/messages${qs}`, { token }
+      );
+    },
+    markRead: (token: string, conversationId: string) =>
+      request<{ message: string }>(`/whatsapp/conversations/${conversationId}/mark-read`, { method: "POST", token }),
+    send: (token: string, conversationId: string, body: { type?: "text" | "template"; body?: string; template?: string; language?: string }) =>
+      request<{ message: InboxMessage }>(`/whatsapp/conversations/${conversationId}/send`, { method: "POST", body, token }),
+  },
 };
 
 export type WaNumber = {
@@ -139,4 +162,37 @@ export type AuthPayload = {
   token: string;
   token_type: string;
   expires_in: number;
+};
+
+export type Conversation = {
+  id: string;
+  status: string;
+  unread_count: number;
+  is_bot_active: boolean;
+  last_message_at: string | null;
+  last_message_preview: string | null;
+  window_expires_at: string | null;
+  window_open: boolean;
+  contact?: { id: string; name: string | null; phone: string | null; wa_id: string };
+  phone_number?: { id: string; display_phone_number: string; verified_name: string | null };
+  assigned_agent?: { id: string; name: string } | null;
+  created_at: string | null;
+};
+
+export type InboxMessage = {
+  id: string;
+  direction: "inbound" | "outbound";
+  type: string;
+  body: string | null;
+  status: string;
+  external_message_id: string | null;
+  sender?: { id: string; name: string } | null;
+  attachments?: { type: string; mime_type: string | null; file_name: string | null; caption: string | null; url: string | null }[];
+  error_code: string | null;
+  error_message: string | null;
+  sent_at: string | null;
+  delivered_at: string | null;
+  read_at: string | null;
+  failed_at: string | null;
+  created_at: string | null;
 };
