@@ -85,6 +85,8 @@ export const api = {
       id: string,
       body: { to: string; type?: "template" | "text"; body?: string; template?: string; language?: string }
     ) => request<{ wamid: string | null; to: string }>(`/whatsapp/numbers/${id}/send-test`, { method: "POST", body, token }),
+    register: (token: string, id: string, pin: string) =>
+      request<{ number: WaNumber }>(`/whatsapp/numbers/${id}/register`, { method: "POST", body: { pin }, token }),
     disconnect: (token: string, id: string) =>
       request<{ message: string }>(`/whatsapp/numbers/${id}`, { method: "DELETE", token }),
   },

@@ -26,6 +26,9 @@ export default function WhatsAppPage() {
   const [sendId, setSendId] = useState<string | null>(null);
   const [sendTo, setSendTo] = useState("");
   const [sending, setSending] = useState(false);
+  const [regId, setRegId] = useState<string | null>(null);
+  const [regPin, setRegPin] = useState("");
+  const [registering, setRegistering] = useState(false);
 
   const load = useCallback(async () => {
     const token = getToken();
@@ -109,6 +112,24 @@ export default function WhatsAppPage() {
       setError((err as ApiError).message);
     } finally {
       setSending(false);
+    }
+  }
+
+  async function registerNumber(id: string) {
+    const token = getToken();
+    if (!token || regPin.length !== 6) return;
+    setRegistering(true);
+    setError(null);
+    try {
+      await api.whatsapp.register(token, id, regPin);
+      setNotice("Phone number registered on WhatsApp Cloud API. You can now send messages.");
+      setRegId(null);
+      setRegPin("");
+      await load();
+    } catch (err) {
+      setError((err as ApiError).message);
+    } finally {
+      setRegistering(false);
     }
   }
 
@@ -201,13 +222,36 @@ export default function WhatsAppPage() {
                     <div className="muted" style={{ fontSize: 12 }}>{n.waba?.name}</div>
                   </span>
                   <span style={{ flex: 1 }}><QualityBadge rating={n.quality_rating} /></span>
-                  <span style={{ flex: 1, textTransform: "capitalize" }}>{n.status}</span>
-                  <span style={{ flex: 1.6, textAlign: "right", display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <span style={{ flex: 1 }}>
+                    <span style={{ textTransform: "capitalize" }}>{n.status}</span>
+                    {!n.is_registered && <div style={{ fontSize: 11, color: "#c53030" }}>Not registered</div>}
+                  </span>
+                  <span style={{ flex: 1.6, textAlign: "right", display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                    {!n.is_registered && (
+                      <button className="btn-mini" style={{ background: "#ff9800", color: "#fff", border: "none" }} onClick={() => { setRegId(regId === n.id ? null : n.id); setRegPin(""); setNotice(null); }}>Register</button>
+                    )}
                     <button className="btn-mini" onClick={() => { setSendId(sendId === n.id ? null : n.id); setSendTo(""); setNotice(null); }}>Send test</button>
                     <button className="btn-mini" onClick={() => sync(n.id)}>Sync</button>
                     <button className="btn-mini danger" onClick={() => disconnect(n.id)}>Disconnect</button>
                   </span>
                 </div>
+                {regId === n.id && (
+                  <div style={{ padding: "12px 0 16px", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                    <input
+                      value={regPin}
+                      onChange={(e) => setRegPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      placeholder="6-digit PIN"
+                      maxLength={6}
+                      style={{ width: 140, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, fontSize: 14, letterSpacing: 4, textAlign: "center" }}
+                    />
+                    <button className="btn" style={{ width: "auto", padding: "10px 18px", background: "#ff9800" }} disabled={registering || regPin.length !== 6} onClick={() => registerNumber(n.id)}>
+                      {registering ? "Registering…" : "Register number"}
+                    </button>
+                    <span className="muted" style={{ fontSize: 12, width: "100%" }}>
+                      Enter a 6-digit PIN for two-step verification. This registers your phone number on the WhatsApp Cloud API so you can send messages.
+                    </span>
+                  </div>
+                )}
                 {sendId === n.id && (
                   <div style={{ padding: "12px 0 16px", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                     <input
