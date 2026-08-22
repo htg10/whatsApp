@@ -1,12 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Static export for Hostinger (no Node server). Produces an `out/` folder of
-  // plain HTML/JS you upload to public_html. trailingSlash makes each route a
-  // folder with index.html so Apache serves /whatsapp/ on a hard refresh.
-  output: "export",
-  trailingSlash: true,
-  images: { unoptimized: true },
+  // SSR/Node deploy (GitHub → Next.js on Hostinger/Vercel). No static export.
+  // If you ever host as static files in public_html instead, re-add:
+  //   output: "export", trailingSlash: true, images: { unoptimized: true }
 };
 
 export default nextConfig;
