@@ -1,0 +1,71 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
+import { api, ApiError, User } from "@/lib/api";
+import { getToken, clearToken } from "@/lib/auth";
+import { NAV } from "@/lib/nav";
+import { UserContext } from "@/lib/user-context";
+
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [user, setUser] = useState<User | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) {
+      router.replace("/login");
+      return;
+    }
+    api
+      .me(token)
+      .then((data) => setUser(data.user))
+      .catch((err) => {
+        const e = err as ApiError;
+        if (e.status === 401) {
+          clearToken();
+          router.replace("/login");
+        } else {
+          setError(e.message);
+        }
+      });
+  }, [router]);
+
+  function logout() {
+    clearToken();
+    router.replace("/login");
+  }
+
+  if (error) return <div className="center-screen">Error: {error}</div>;
+  if (!user) return <div className="center-screen">Loading…</div>;
+
+  return (
+    <UserContext.Provider value={user}>
+      <div className="shell">
+        <aside className="sidebar">
+          <div className="logo"><span>✆</span> WhatsApp SaaS</div>
+          <nav>
+            {NAV.map((item) => {
+              const active = pathname === item.href || pathname.startsWith(item.href + "/");
+              return (
+                <Link key={item.href} href={item.href} className={active ? "active" : ""}>
+                  <span style={{ display: "inline-block", width: 22, opacity: 0.85 }}>{item.icon}</span>
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+          <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,.15)" }}>
+            <div style={{ fontSize: 13, color: "#cfe0dc" }}>{user.name}</div>
+            <div style={{ fontSize: 12, color: "#9fc0b8", marginBottom: 10 }}>{user.email}</div>
+            <button className="btn-ghost" onClick={logout}>Log out</button>
+          </div>
+        </aside>
+        <main className="main">{children}</main>
+      </div>
+    </UserContext.Provider>
+  );
+}

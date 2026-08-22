@@ -1,0 +1,18 @@
+# Static Next.js export on Hostinger (Apache). Serves real files/folders, and
+# falls back to the SPA entry for anything else so client routes never 404.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Force HTTPS
+  RewriteCond %{HTTPS} !=on
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # Serve existing file or directory as-is
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Otherwise fall back to the app shell
+  RewriteRule ^ /index.html [L]
+</IfModule>
