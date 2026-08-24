@@ -14,7 +14,7 @@ export default function CampaignsPage() {
   const [showForm, setShowForm] = useState(false);
   const [numbers, setNumbers] = useState("");
   const [template, setTemplate] = useState("pg_owner_welcome");
-  const [language, setLanguage] = useState("en");
+  const [language, setLanguage] = useState("en_US");
   const [submitting, setSubmitting] = useState(false);
 
   const [detail, setDetail] = useState<BulkSendDetail | null>(null);
