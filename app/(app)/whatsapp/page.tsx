@@ -104,7 +104,7 @@ export default function WhatsAppPage() {
       const res = await api.whatsapp.sendTest(token, id, {
         to: sendTo,
         type: "template",
-        template: "hello_friend",
+        template: "pg_owner_welcome",
         language: "en",
       });
       setNotice(`Message sent to ${res.to} (id: ${res.wamid ?? "queued"}). Check WhatsApp on that phone.`);
@@ -263,10 +263,10 @@ export default function WhatsAppPage() {
                       style={{ flex: 1, minWidth: 260, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, fontSize: 14 }}
                     />
                     <button className="btn" style={{ width: "auto", padding: "10px 18px" }} disabled={sending || !sendTo.trim()} onClick={() => sendTest(n.id)}>
-                      {sending ? "Sending…" : "Send hello_friend"}
+                      {sending ? "Sending…" : "Send pg_owner_welcome"}
                     </button>
                     <span className="muted" style={{ fontSize: 12, width: "100%" }}>
-                      Sends the pre-approved <b>hello_friend</b> template — the reliable way to start a chat.
+                      Sends the pre-approved <b>pg_owner_welcome</b> template — the reliable way to start a chat.
                     </span>
                   </div>
                 )}

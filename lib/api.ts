@@ -91,6 +91,19 @@ export const api = {
       request<{ message: string }>(`/whatsapp/numbers/${id}`, { method: "DELETE", token }),
   },
 
+  bulk: {
+    list: (token: string, page?: number) => {
+      const qs = page ? `?page=${page}` : "";
+      return request<{ bulk_sends: BulkSend[]; meta: { current_page: number; last_page: number; total: number } }>(
+        `/whatsapp/bulk-sends${qs}`, { token }
+      );
+    },
+    get: (token: string, id: string) =>
+      request<{ bulk_send: BulkSendDetail }>(`/whatsapp/bulk-sends/${id}`, { token }),
+    send: (token: string, body: { numbers: string[]; template: string; language?: string }) =>
+      request<{ bulk_send: BulkSendDetail }>("/whatsapp/bulk-send", { method: "POST", body, token }),
+  },
+
   inbox: {
     conversations: (token: string, params?: { status?: string; search?: string; page?: number }) => {
       const qs = new URLSearchParams();
@@ -177,6 +190,32 @@ export type Conversation = {
   phone_number?: { id: string; display_phone_number: string; verified_name: string | null };
   assigned_agent?: { id: string; name: string } | null;
   created_at: string | null;
+};
+
+export type BulkSend = {
+  id: number;
+  uuid: string;
+  template_name: string;
+  language: string;
+  status: string;
+  total: number;
+  sent_count: number;
+  failed_count: number;
+  phone_number?: { id: string; display_phone_number: string } | null;
+  created_at: string | null;
+};
+
+export type BulkSendRecipient = {
+  id: number;
+  phone: string;
+  status: string;
+  wamid: string | null;
+  error_message: string | null;
+  sent_at: string | null;
+};
+
+export type BulkSendDetail = BulkSend & {
+  recipients: BulkSendRecipient[];
 };
 
 export type InboxMessage = {
