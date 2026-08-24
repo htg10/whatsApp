@@ -13,7 +13,7 @@ export default function CampaignsPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [numbers, setNumbers] = useState("");
-  const [template, setTemplate] = useState("pg_owner_welcome");
+  const [template, setTemplate] = useState("pg_owenr_welcome");
   const [language, setLanguage] = useState("en_US");
   const [submitting, setSubmitting] = useState(false);
 
