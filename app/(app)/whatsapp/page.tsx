@@ -61,7 +61,9 @@ export default function WhatsAppPage() {
       setNotice("WhatsApp number connected successfully.");
       await load();
     } catch (err) {
-      setError((err as ApiError).message);
+      const e = err as ApiError;
+      const fieldErrors = e.errors ? Object.values(e.errors).flat().join(". ") : "";
+      setError(fieldErrors || e.message);
     } finally {
       setSubmitting(false);
     }
