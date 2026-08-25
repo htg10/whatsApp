@@ -191,6 +191,8 @@ export const api = {
       }
       return json.data as { message: InboxMessage };
     },
+    deleteMessage: (token: string, conversationId: string, messageId: string) =>
+      request<{ message: string }>(`/whatsapp/conversations/${conversationId}/messages/${messageId}`, { method: "DELETE", token }),
   },
 
   campaigns: {

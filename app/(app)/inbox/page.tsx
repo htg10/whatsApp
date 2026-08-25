@@ -93,7 +93,7 @@ function MediaBubble({ msg }: { msg: InboxMessage }) {
   return (
     <div className="bubble-doc">
       <div className="bubble-doc-icon">📄</div>
-      <div>
+      <div style={{ flex: 1, minWidth: 0 }}>
         <div className="bubble-doc-name">{att.file_name || "Document"}</div>
         <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
           {att.mime_type} {att.file_size ? `· ${formatFileSize(att.file_size)}` : ""}
@@ -101,11 +101,15 @@ function MediaBubble({ msg }: { msg: InboxMessage }) {
         {att.caption && <div style={{ marginTop: 4, fontSize: 13 }}>{att.caption}</div>}
       </div>
       {att.url && (
-        <a href={att.url} target="_blank" rel="noopener noreferrer" style={{ marginLeft: "auto", fontSize: 20, textDecoration: "none" }}>⬇</a>
+        <a href={att.url} target="_blank" rel="noopener noreferrer" style={{ marginLeft: "auto", padding: "6px 10px", background: "var(--primary)", color: "#fff", borderRadius: 8, fontSize: 12, textDecoration: "none", fontWeight: 600, whiteSpace: "nowrap" }}>
+          Download
+        </a>
       )}
     </div>
   );
 }
+
+type MsgAction = { msgId: string; x: number; y: number };
 
 export default function InboxPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -126,11 +130,18 @@ export default function InboxPage() {
   const [recording, setRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
+
+  // Message actions
+  const [actionMenu, setActionMenu] = useState<MsgAction | null>(null);
+  const [replyTo, setReplyTo] = useState<InboxMessage | null>(null);
+  const [msgInfo, setMsgInfo] = useState<InboxMessage | null>(null);
+
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const msgPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
+  const actionMenuRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -160,7 +171,7 @@ export default function InboxPage() {
   useEffect(() => {
     setLoading(true);
     loadConversations();
-    pollRef.current = setInterval(loadConversations, 10000);
+    pollRef.current = setInterval(loadConversations, 15000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [loadConversations]);
 
@@ -187,6 +198,9 @@ export default function InboxPage() {
     setMediaPreview(null);
     setError(null);
     setShowAttach(false);
+    setReplyTo(null);
+    setActionMenu(null);
+    setMsgInfo(null);
     stopRecording();
     loadMessages(conv.id);
 
@@ -199,7 +213,7 @@ export default function InboxPage() {
     }
 
     if (msgPollRef.current) clearInterval(msgPollRef.current);
-    msgPollRef.current = setInterval(() => loadMessages(conv.id), 5000);
+    msgPollRef.current = setInterval(() => loadMessages(conv.id), 8000);
   }, [loadMessages]);
 
   useEffect(() => {
@@ -210,16 +224,84 @@ export default function InboxPage() {
     };
   }, []);
 
+  // Close menus on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (attachMenuRef.current && !attachMenuRef.current.contains(e.target as Node)) {
         setShowAttach(false);
       }
+      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target as Node)) {
+        setActionMenu(null);
+      }
     }
-    if (showAttach) document.addEventListener("mousedown", handleClick);
+    if (showAttach || actionMenu) document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [showAttach]);
+  }, [showAttach, actionMenu]);
 
+  // --- Message Actions ---
+  function openActionMenu(e: React.MouseEvent, msg: InboxMessage) {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setActionMenu({ msgId: msg.id, x: rect.right - 120, y: rect.top - 4 });
+  }
+
+  function getActionMsg(): InboxMessage | undefined {
+    return messages.find((m) => m.id === actionMenu?.msgId);
+  }
+
+  async function copyMessage() {
+    const msg = getActionMsg();
+    if (!msg) return;
+    const text = msg.body || msg.attachments?.[0]?.caption || "";
+    if (text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast("Copied to clipboard");
+      } catch {
+        showToast("Copy failed");
+      }
+    }
+    setActionMenu(null);
+  }
+
+  function replyMessage() {
+    const msg = getActionMsg();
+    if (msg) setReplyTo(msg);
+    setActionMenu(null);
+  }
+
+  function showMessageInfo() {
+    const msg = getActionMsg();
+    if (msg) setMsgInfo(msg);
+    setActionMenu(null);
+  }
+
+  async function deleteMessage() {
+    const msg = getActionMsg();
+    const token = getToken();
+    if (!msg || !token || !activeId) return;
+    setActionMenu(null);
+    try {
+      await api.inbox.deleteMessage(token, activeId, msg.id);
+      setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+      showToast("Message deleted");
+    } catch (err) {
+      setError((err as ApiError).message);
+    }
+  }
+
+  function forwardMessage() {
+    showToast("Forward — coming soon");
+    setActionMenu(null);
+  }
+
+  function starMessage() {
+    showToast("Star — coming soon");
+    setActionMenu(null);
+  }
+
+  // --- Send ---
   async function sendMessage() {
     const token = getToken();
     if (!token || !activeId || !text.trim()) return;
@@ -229,6 +311,7 @@ export default function InboxPage() {
       const res = await api.inbox.send(token, activeId, { type: "text", body: text.trim() });
       setMessages((prev) => [res.message, ...prev]);
       setText("");
+      setReplyTo(null);
       loadConversations();
     } catch (err) {
       setError((err as ApiError).message);
@@ -246,6 +329,7 @@ export default function InboxPage() {
       const res = await api.inbox.sendMedia(token, activeId, mediaFile, mediaType, caption || undefined);
       setMessages((prev) => [res.message, ...prev]);
       clearMedia();
+      setReplyTo(null);
       loadConversations();
     } catch (err) {
       setError((err as ApiError).message);
@@ -291,9 +375,7 @@ export default function InboxPage() {
   }
 
   function openCamera() {
-    if (cameraRef.current) {
-      cameraRef.current.click();
-    }
+    if (cameraRef.current) cameraRef.current.click();
     setShowAttach(false);
   }
 
@@ -408,6 +490,82 @@ export default function InboxPage() {
         </div>
       )}
 
+      {/* Message action context menu */}
+      {actionMenu && (
+        <div
+          ref={actionMenuRef}
+          className="msg-action-menu"
+          style={{ top: actionMenu.y, left: actionMenu.x }}
+        >
+          <div className="msg-action-item" onClick={replyMessage}>
+            <span className="msg-action-icon">↩</span> Reply
+          </div>
+          <div className="msg-action-item" onClick={copyMessage}>
+            <span className="msg-action-icon">📋</span> Copy
+          </div>
+          <div className="msg-action-item" onClick={forwardMessage}>
+            <span className="msg-action-icon">↪</span> Forward
+          </div>
+          <div className="msg-action-item" onClick={starMessage}>
+            <span className="msg-action-icon">⭐</span> Star
+          </div>
+          <div className="msg-action-item" onClick={showMessageInfo}>
+            <span className="msg-action-icon">ℹ</span> Info
+          </div>
+          <div className="msg-action-divider" />
+          <div className="msg-action-item msg-action-danger" onClick={deleteMessage}>
+            <span className="msg-action-icon">🗑</span> Delete
+          </div>
+        </div>
+      )}
+
+      {/* Message info panel */}
+      {msgInfo && (
+        <div className="msg-info-overlay" onClick={() => setMsgInfo(null)}>
+          <div className="msg-info-panel" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <h3 style={{ margin: 0, fontSize: 15 }}>Message info</h3>
+              <button className="btn-mini" onClick={() => setMsgInfo(null)}>✕</button>
+            </div>
+            <div style={{ padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
+              <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 4 }}>Message</div>
+              <div style={{ fontSize: 14 }}>{msgInfo.body || `[${msgInfo.type}]`}</div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, padding: "12px 0" }}>
+              <div>
+                <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", marginBottom: 2 }}>Status</div>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{msgInfo.status}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", marginBottom: 2 }}>Direction</div>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{msgInfo.direction}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", marginBottom: 2 }}>Sent</div>
+                <div style={{ fontSize: 13 }}>{msgInfo.sent_at ? new Date(msgInfo.sent_at).toLocaleString("en-IN") : "—"}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", marginBottom: 2 }}>Delivered</div>
+                <div style={{ fontSize: 13 }}>{msgInfo.delivered_at ? new Date(msgInfo.delivered_at).toLocaleString("en-IN") : "—"}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", marginBottom: 2 }}>Read</div>
+                <div style={{ fontSize: 13 }}>{msgInfo.read_at ? new Date(msgInfo.read_at).toLocaleString("en-IN") : "—"}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", marginBottom: 2 }}>Type</div>
+                <div style={{ fontSize: 13 }}>{msgInfo.type}</div>
+              </div>
+            </div>
+            {msgInfo.error_message && (
+              <div style={{ background: "#fdecec", padding: "8px 10px", borderRadius: 8, fontSize: 12, color: "#c53030", marginTop: 4 }}>
+                Error: {msgInfo.error_message} {msgInfo.error_code ? `(${msgInfo.error_code})` : ""}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Left: Conversation list */}
       <div className="convo-list">
         <div className="convo-list-header">
@@ -491,21 +649,43 @@ export default function InboxPage() {
                 messages.map((msg) => (
                   <div
                     key={msg.id}
-                    className={msg.direction === "inbound" ? "bubble bubble-in" : "bubble bubble-out"}
+                    className={`bubble-wrap ${msg.direction === "inbound" ? "bubble-wrap-in" : "bubble-wrap-out"}`}
                   >
-                    {isMediaMessage(msg.type) && msg.attachments && msg.attachments.length > 0 ? (
-                      <MediaBubble msg={msg} />
-                    ) : (
-                      <div>{msg.body || `[${msg.type}]`}</div>
-                    )}
-                    <div className="meta">
-                      <span>{formatTime(msg.created_at)}</span>
-                      {msg.direction === "outbound" && <StatusIcon status={msg.status} />}
+                    <div className={msg.direction === "inbound" ? "bubble bubble-in" : "bubble bubble-out"}>
+                      {/* Action arrow button */}
+                      <button
+                        className="bubble-action-btn"
+                        onClick={(e) => openActionMenu(e, msg)}
+                        title="Message options"
+                      >
+                        ▾
+                      </button>
+                      {isMediaMessage(msg.type) && msg.attachments && msg.attachments.length > 0 ? (
+                        <MediaBubble msg={msg} />
+                      ) : (
+                        <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{msg.body || `[${msg.type}]`}</div>
+                      )}
+                      <div className="meta">
+                        <span>{formatTime(msg.created_at)}</span>
+                        {msg.direction === "outbound" && <StatusIcon status={msg.status} />}
+                      </div>
                     </div>
                   </div>
                 ))
               )}
             </div>
+
+            {/* Reply bar */}
+            {replyTo && (
+              <div className="reply-bar">
+                <div className="reply-bar-line" />
+                <div className="reply-bar-content">
+                  <div className="reply-bar-name">{replyTo.direction === "inbound" ? (activeConv.contact?.name || "Contact") : "You"}</div>
+                  <div className="reply-bar-text">{replyTo.body || `[${replyTo.type}]`}</div>
+                </div>
+                <button className="reply-bar-close" onClick={() => setReplyTo(null)}>✕</button>
+              </div>
+            )}
 
             {/* Media preview bar */}
             {mediaFile && !recording && (
