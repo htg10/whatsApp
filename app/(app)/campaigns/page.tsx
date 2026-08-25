@@ -1,27 +1,73 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { api, ApiError, BulkSend, BulkSendDetail } from "@/lib/api";
+import { useCallback, useEffect, useState } from "react";
+import { api, ApiError, BulkSend, BulkSendDetail, CampaignItem, CampaignDetail, TemplateItem, TagItem } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
 
+const STATUS_COLORS: Record<string, { bg: string; fg: string }> = {
+  draft: { bg: "#eef1f2", fg: "#667781" },
+  scheduled: { bg: "#fff3cd", fg: "#856404" },
+  running: { bg: "#cce5ff", fg: "#004085" },
+  paused: { bg: "#fff3cd", fg: "#856404" },
+  completed: { bg: "#e7f7ef", fg: "#0a7d47" },
+  cancelled: { bg: "#eef1f2", fg: "#667781" },
+  failed: { bg: "#fdecec", fg: "#c53030" },
+  sent: { bg: "#e7f7ef", fg: "#0a7d47" },
+  processing: { bg: "#cce5ff", fg: "#004085" },
+};
+
+function StatusBadge({ status }: { status: string }) {
+  const c = STATUS_COLORS[status] ?? STATUS_COLORS.draft;
+  return (
+    <span style={{ background: c.bg, color: c.fg, padding: "2px 9px", borderRadius: 999, fontSize: 12, fontWeight: 600 }}>
+      {status}
+    </span>
+  );
+}
+
+type Tab = "campaigns" | "bulk";
+
 export default function CampaignsPage() {
+  const [tab, setTab] = useState<Tab>("campaigns");
+  const [campaigns, setCampaigns] = useState<CampaignItem[]>([]);
   const [sends, setSends] = useState<BulkSend[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const [showForm, setShowForm] = useState(false);
-  const [numbers, setNumbers] = useState("");
-  const [template, setTemplate] = useState("pg_owenr_welcome");
-  const [language, setLanguage] = useState("en");
+  // Campaign create form
+  const [showCreate, setShowCreate] = useState(false);
+  const [templates, setTemplates] = useState<TemplateItem[]>([]);
+  const [tags, setTags] = useState<TagItem[]>([]);
+  const [form, setForm] = useState({ name: "", template_id: "", tags: [] as string[], scheduled_at: "" });
   const [submitting, setSubmitting] = useState(false);
 
-  const [detail, setDetail] = useState<BulkSendDetail | null>(null);
+  // Campaign detail
+  const [detail, setDetail] = useState<CampaignDetail | null>(null);
 
-  const fileRef = useRef<HTMLInputElement>(null);
+  // Bulk send form
+  const [showBulk, setShowBulk] = useState(false);
+  const [bulkNumbers, setBulkNumbers] = useState("");
+  const [bulkTemplate, setBulkTemplate] = useState("pg_owenr_welcome");
+  const [bulkLang, setBulkLang] = useState("en");
+  const [bulkDetail, setBulkDetail] = useState<BulkSendDetail | null>(null);
 
-  const load = useCallback(async () => {
+  const loadCampaigns = useCallback(async () => {
+    const token = getToken();
+    if (!token) return;
+    setLoading(true);
+    try {
+      const res = await api.campaigns.list(token);
+      setCampaigns(res.campaigns);
+    } catch (err) {
+      setError((err as ApiError).message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadBulkSends = useCallback(async () => {
     const token = getToken();
     if (!token) return;
     setLoading(true);
@@ -35,295 +81,446 @@ export default function CampaignsPage() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (tab === "campaigns") loadCampaigns();
+    else loadBulkSends();
+  }, [tab, loadCampaigns, loadBulkSends]);
 
-  function parseNumbers(text: string): string[] {
-    return text
-      .split(/[\n,;]+/)
-      .map((n) => n.trim())
-      .filter((n) => n.length >= 10);
+  async function openCreateForm() {
+    const token = getToken();
+    if (!token) return;
+    setShowCreate(true);
+    setShowBulk(false);
+    setError(null);
+    try {
+      const [t, tg] = await Promise.all([api.templates.list(token, { status: "APPROVED" }), api.tags.list(token)]);
+      setTemplates(t.templates);
+      setTags(tg.tags);
+    } catch {}
   }
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      const lines = text
-        .split(/[\n\r]+/)
-        .map((l) => {
-          const cols = l.split(/[,;\t]+/);
-          const phoneCol = cols.find((c) => /^\+?\d[\d\s\-]{8,}$/.test(c.trim()));
-          return phoneCol?.trim() ?? "";
-        })
-        .filter(Boolean);
-      setNumbers((prev) => (prev ? prev + "\n" : "") + lines.join("\n"));
-      setNotice(`${lines.length} numbers loaded from file.`);
-    };
-    reader.readAsText(file);
-    e.target.value = "";
-  }
-
-  async function send(e: React.FormEvent) {
+  async function createCampaign(e: React.FormEvent) {
     e.preventDefault();
     const token = getToken();
     if (!token) return;
-
-    const nums = parseNumbers(numbers);
-    if (nums.length === 0) {
-      setError("No valid phone numbers found. Enter numbers with country code.");
-      return;
-    }
-
     setSubmitting(true);
     setError(null);
-    setNotice(null);
     try {
-      const res = await api.bulk.send(token, {
-        numbers: nums,
-        template,
-        language,
-      });
-      setNotice(`Bulk send complete: ${res.bulk_send.sent_count} sent, ${res.bulk_send.failed_count} failed out of ${res.bulk_send.total}.`);
-      setNumbers("");
-      setShowForm(false);
-      await load();
+      const body: Parameters<typeof api.campaigns.create>[1] = {
+        name: form.name,
+        template_id: form.template_id,
+      };
+      if (form.tags.length) body.audience_filter = { tags: form.tags };
+      if (form.scheduled_at) body.scheduled_at = form.scheduled_at;
+      await api.campaigns.create(token, body);
+      setNotice("Campaign created.");
+      setShowCreate(false);
+      setForm({ name: "", template_id: "", tags: [], scheduled_at: "" });
+      loadCampaigns();
     } catch (err) {
       const e = err as ApiError;
-      const fieldErrors = e.errors ? Object.values(e.errors).flat().join(". ") : "";
-      setError(fieldErrors || e.message);
+      setError(e.errors ? Object.values(e.errors).flat().join(". ") : e.message);
     } finally {
       setSubmitting(false);
     }
   }
 
-  async function viewDetail(uuid: string) {
+  async function viewCampaignDetail(id: string) {
     const token = getToken();
     if (!token) return;
     try {
-      const res = await api.bulk.get(token, uuid);
-      setDetail(res.bulk_send);
+      const res = await api.campaigns.get(token, id);
+      setDetail(res.campaign);
     } catch (err) {
       setError((err as ApiError).message);
     }
   }
 
-  const parsedCount = parseNumbers(numbers).length;
+  async function campaignAction(id: string, action: "start" | "pause" | "cancel") {
+    const token = getToken();
+    if (!token) return;
+    setError(null);
+    try {
+      await api.campaigns[action](token, id);
+      setNotice(`Campaign ${action}ed.`);
+      loadCampaigns();
+      if (detail?.id === id) viewCampaignDetail(id);
+    } catch (err) {
+      setError((err as ApiError).message);
+    }
+  }
+
+  async function deleteCampaign(id: string) {
+    const token = getToken();
+    if (!token) return;
+    try {
+      await api.campaigns.remove(token, id);
+      setNotice("Campaign deleted.");
+      setDetail(null);
+      loadCampaigns();
+    } catch (err) {
+      setError((err as ApiError).message);
+    }
+  }
+
+  // Bulk send
+  function parseNumbers(text: string): string[] {
+    return text.split(/[\n,;]+/).map((n) => n.trim().replace(/[^0-9+]/g, "")).filter((n) => n.length >= 10);
+  }
+
+  async function sendBulk(e: React.FormEvent) {
+    e.preventDefault();
+    const token = getToken();
+    if (!token) return;
+    const nums = parseNumbers(bulkNumbers);
+    if (!nums.length) { setError("No valid numbers found."); return; }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await api.bulk.send(token, { numbers: nums, template: bulkTemplate, language: bulkLang });
+      setNotice(`Bulk send started to ${nums.length} numbers.`);
+      setShowBulk(false);
+      setBulkNumbers("");
+      loadBulkSends();
+    } catch (err) {
+      setError((err as ApiError).message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function viewBulkDetail(uuid: string) {
+    const token = getToken();
+    if (!token) return;
+    try {
+      const res = await api.bulk.get(token, uuid);
+      setBulkDetail(res.bulk_send);
+    } catch (err) {
+      setError((err as ApiError).message);
+    }
+  }
+
+  const parsedCount = parseNumbers(bulkNumbers).length;
 
   return (
     <>
       <PageHeader
         title="Campaigns"
-        subtitle="Send bulk WhatsApp template messages"
+        subtitle="Template campaigns & bulk sends"
         action={
-          <button
-            className="btn"
-            style={{ width: "auto", padding: "10px 18px" }}
-            onClick={() => { setShowForm((v) => !v); setNotice(null); setError(null); }}
-          >
-            {showForm ? "Close" : "+ New Bulk Send"}
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            {tab === "campaigns" ? (
+              <button className="btn" style={{ width: "auto", padding: "10px 18px" }} onClick={openCreateForm}>
+                + New Campaign
+              </button>
+            ) : (
+              <button className="btn" style={{ width: "auto", padding: "10px 18px" }} onClick={() => { setShowBulk((v) => !v); setShowCreate(false); setError(null); }}>
+                {showBulk ? "Close" : "+ Bulk Send"}
+              </button>
+            )}
+          </div>
         }
       />
 
       {notice && <div className="panel" style={{ background: "#e7f7ef", borderColor: "#b6e6cd", color: "#0a7d47" }}>{notice}</div>}
       {error && <div className="error">{error}</div>}
 
-      {showForm && (
+      {/* Tabs */}
+      <div className="filter-tabs" style={{ marginBottom: 16 }}>
+        <div className={`filter-tab ${tab === "campaigns" ? "active" : ""}`} onClick={() => { setTab("campaigns"); setShowBulk(false); setShowCreate(false); }}>
+          Campaigns
+        </div>
+        <div className={`filter-tab ${tab === "bulk" ? "active" : ""}`} onClick={() => { setTab("bulk"); setShowBulk(false); setShowCreate(false); }}>
+          Bulk Send
+        </div>
+      </div>
+
+      {/* Campaign create form */}
+      {showCreate && tab === "campaigns" && (
         <div className="panel">
-          <h2>Bulk Send Template Message</h2>
-          <p className="muted" style={{ marginTop: 0 }}>
-            Upload a CSV or paste phone numbers (one per line, with country code e.g. 919876543210).
-            The template message will be sent from your default WhatsApp number.
-          </p>
-          <form onSubmit={send}>
+          <h2>Create Campaign</h2>
+          <form onSubmit={createCampaign}>
             <div className="field">
-              <label>Template name</label>
-              <input
-                value={template}
-                onChange={(e) => setTemplate(e.target.value)}
-                required
-                placeholder="e.g. pg_owner_welcome"
-              />
+              <label>Campaign name</label>
+              <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required placeholder="Summer sale blast" />
+            </div>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <div className="field" style={{ flex: 1, minWidth: 200 }}>
+                <label>Template</label>
+                <select value={form.template_id} onChange={(e) => setForm((f) => ({ ...f, template_id: e.target.value }))} required style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, fontSize: 14 }}>
+                  <option value="">Select template...</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name} ({t.language})</option>
+                  ))}
+                </select>
+              </div>
+              <div className="field" style={{ flex: 1, minWidth: 200 }}>
+                <label>Schedule (optional)</label>
+                <input type="datetime-local" value={form.scheduled_at} onChange={(e) => setForm((f) => ({ ...f, scheduled_at: e.target.value }))} />
+              </div>
             </div>
             <div className="field">
-              <label>Language</label>
-              <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                {[
-                  { code: "en", label: "English" },
-                  { code: "en_US", label: "English (US)" },
-                  { code: "hi", label: "Hindi" },
-                ].map((lang) => (
-                  <label
-                    key={lang.code}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      cursor: "pointer",
-                      padding: "6px 12px",
-                      borderRadius: 8,
-                      border: language === lang.code ? "2px solid #25d366" : "1px solid var(--border)",
-                      background: language === lang.code ? "#e7f7ef" : "transparent",
-                      fontSize: 13,
-                      fontWeight: language === lang.code ? 600 : 400,
-                    }}
-                  >
+              <label>Target audience — tags (leave empty for all contacts)</label>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {tags.map((t) => (
+                  <label key={t.id} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, cursor: "pointer" }}>
                     <input
-                      type="radio"
-                      name="language"
-                      value={lang.code}
-                      checked={language === lang.code}
-                      onChange={() => setLanguage(lang.code)}
-                      style={{ display: "none" }}
+                      type="checkbox"
+                      checked={form.tags.includes(t.id)}
+                      onChange={(e) => {
+                        setForm((f) => ({
+                          ...f,
+                          tags: e.target.checked ? [...f.tags, t.id] : f.tags.filter((id) => id !== t.id),
+                        }));
+                      }}
                     />
-                    {lang.label} <span style={{ color: "#888", fontSize: 11 }}>({lang.code})</span>
+                    <span style={{ background: t.color + "22", color: t.color, padding: "1px 8px", borderRadius: 999, fontWeight: 600 }}>{t.name}</span>
                   </label>
                 ))}
+                {tags.length === 0 && <span className="muted">No tags — campaign will target all contacts</span>}
               </div>
             </div>
-            <div className="field">
-              <label>Phone numbers</label>
-              <div style={{ display: "flex", gap: 10, marginBottom: 8 }}>
-                <button
-                  type="button"
-                  className="btn-mini"
-                  onClick={() => fileRef.current?.click()}
-                >
-                  Upload CSV
-                </button>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept=".csv,.txt,.xlsx"
-                  style={{ display: "none" }}
-                  onChange={handleFile}
-                />
-                <span className="muted" style={{ fontSize: 12, alignSelf: "center" }}>
-                  or paste numbers below
-                </span>
-              </div>
-              <textarea
-                value={numbers}
-                onChange={(e) => setNumbers(e.target.value)}
-                placeholder={"919876543210\n918765432109\n917654321098"}
-                rows={10}
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  border: "1px solid var(--border)",
-                  borderRadius: 10,
-                  fontSize: 14,
-                  fontFamily: "monospace",
-                  resize: "vertical",
-                }}
-              />
-              <span className="muted" style={{ fontSize: 12 }}>
-                {parsedCount > 0 ? `${parsedCount} valid number${parsedCount > 1 ? "s" : ""} detected` : "No numbers yet"}
-                {parsedCount > 200 && " — large batches may take a few minutes"}
-              </span>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button className="btn" disabled={submitting}>{submitting ? "Creating..." : "Create Campaign"}</button>
+              <button type="button" className="btn" style={{ background: "#888" }} onClick={() => setShowCreate(false)}>Cancel</button>
             </div>
-            <button className="btn" disabled={submitting || parsedCount === 0}>
-              {submitting ? `Sending to ${parsedCount} numbers…` : `Send to ${parsedCount} number${parsedCount !== 1 ? "s" : ""}`}
-            </button>
           </form>
         </div>
       )}
 
-      {/* Detail modal */}
-      {detail && (
+      {/* Campaign detail */}
+      {detail && tab === "campaigns" && (
         <div className="panel">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h2>Bulk Send Details</h2>
-            <button className="btn-mini" onClick={() => setDetail(null)}>Close</button>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+            <h2>{detail.name}</h2>
+            <div style={{ display: "flex", gap: 6 }}>
+              {(detail.status === "draft" || detail.status === "scheduled") && (
+                <button className="btn-mini" onClick={() => campaignAction(detail.id, "start")}>Start</button>
+              )}
+              {detail.status === "running" && (
+                <button className="btn-mini" onClick={() => campaignAction(detail.id, "pause")}>Pause</button>
+              )}
+              {(detail.status === "draft" || detail.status === "scheduled" || detail.status === "running" || detail.status === "paused") && (
+                <button className="btn-mini danger" onClick={() => campaignAction(detail.id, "cancel")}>Cancel</button>
+              )}
+              {detail.status === "draft" && (
+                <button className="btn-mini danger" onClick={() => deleteCampaign(detail.id)}>Delete</button>
+              )}
+              <button className="btn-mini" onClick={() => setDetail(null)}>Close</button>
+            </div>
           </div>
-          <div style={{ display: "flex", gap: 24, flexWrap: "wrap", margin: "12px 0" }}>
-            <div><span className="muted">Template:</span> <b>{detail.template_name}</b></div>
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", margin: "12px 0" }}>
             <div><span className="muted">Status:</span> <StatusBadge status={detail.status} /></div>
-            <div><span className="muted">Total:</span> {detail.total}</div>
-            <div><span className="muted">Sent:</span> <span style={{ color: "#0a7d47" }}>{detail.sent_count}</span></div>
-            <div><span className="muted">Failed:</span> <span style={{ color: "#c53030" }}>{detail.failed_count}</span></div>
+            <div><span className="muted">Template:</span> {detail.template?.name ?? "—"}</div>
+            <div><span className="muted">Phone:</span> {detail.phone_number?.display_phone_number ?? "—"}</div>
+            {detail.scheduled_at && <div><span className="muted">Scheduled:</span> {new Date(detail.scheduled_at).toLocaleString("en-IN")}</div>}
+            {detail.started_at && <div><span className="muted">Started:</span> {new Date(detail.started_at).toLocaleString("en-IN")}</div>}
+            {detail.completed_at && <div><span className="muted">Completed:</span> {new Date(detail.completed_at).toLocaleString("en-IN")}</div>}
           </div>
-          <div style={{ maxHeight: 400, overflowY: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ borderBottom: "2px solid var(--border)" }}>
-                  <th style={{ textAlign: "left", padding: "8px 4px" }}>Phone</th>
-                  <th style={{ textAlign: "left", padding: "8px 4px" }}>Status</th>
-                  <th style={{ textAlign: "left", padding: "8px 4px" }}>Error</th>
-                </tr>
-              </thead>
-              <tbody>
-                {detail.recipients.map((r) => (
-                  <tr key={r.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                    <td style={{ padding: "6px 4px", fontFamily: "monospace" }}>{r.phone}</td>
-                    <td style={{ padding: "6px 4px" }}><StatusBadge status={r.status} /></td>
-                    <td style={{ padding: "6px 4px", color: "#c53030", fontSize: 12 }}>{r.error_message}</td>
+          <div className="grid" style={{ marginBottom: 16 }}>
+            <div className="stat"><div className="label">Recipients</div><div className="value">{detail.total_recipients}</div></div>
+            <div className="stat"><div className="label">Sent</div><div className="value" style={{ color: "#0a7d47" }}>{detail.sent_count}</div></div>
+            <div className="stat"><div className="label">Delivered</div><div className="value" style={{ color: "#007bfc" }}>{detail.delivered_count}</div></div>
+            <div className="stat"><div className="label">Read</div><div className="value" style={{ color: "#53bdeb" }}>{detail.read_count}</div></div>
+            <div className="stat"><div className="label">Failed</div><div className="value" style={{ color: "#c53030" }}>{detail.failed_count}</div></div>
+            <div className="stat"><div className="label">Replied</div><div className="value">{detail.replied_count}</div></div>
+          </div>
+          {detail.contacts && detail.contacts.length > 0 && (
+            <div style={{ overflowX: "auto" }}>
+              <h3 style={{ fontSize: 14, marginBottom: 8 }}>Recipients</h3>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: "2px solid var(--border)" }}>
+                    <th style={{ textAlign: "left", padding: "6px 4px" }}>Contact</th>
+                    <th style={{ textAlign: "left", padding: "6px 4px" }}>Phone</th>
+                    <th style={{ textAlign: "left", padding: "6px 4px" }}>Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {detail.contacts.map((cc) => (
+                    <tr key={cc.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                      <td style={{ padding: "6px 4px" }}>{cc.contact.name || "—"}</td>
+                      <td style={{ padding: "6px 4px", fontFamily: "monospace" }}>{cc.contact.phone}</td>
+                      <td style={{ padding: "6px 4px" }}><StatusBadge status={cc.status} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
-      {/* History */}
-      <div className="panel">
-        <h2>Bulk Send History</h2>
-        {loading ? (
-          <p className="muted">Loading…</p>
-        ) : sends.length === 0 ? (
-          <p className="muted">No bulk sends yet. Click "+ New Bulk Send" to start.</p>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ borderBottom: "2px solid var(--border)" }}>
-                  <th style={{ textAlign: "left", padding: "8px 4px" }}>Date</th>
-                  <th style={{ textAlign: "left", padding: "8px 4px" }}>Template</th>
-                  <th style={{ textAlign: "left", padding: "8px 4px" }}>Status</th>
-                  <th style={{ textAlign: "right", padding: "8px 4px" }}>Total</th>
-                  <th style={{ textAlign: "right", padding: "8px 4px" }}>Sent</th>
-                  <th style={{ textAlign: "right", padding: "8px 4px" }}>Failed</th>
-                  <th style={{ textAlign: "right", padding: "8px 4px" }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {sends.map((s) => (
-                  <tr key={s.uuid} style={{ borderBottom: "1px solid var(--border)" }}>
-                    <td style={{ padding: "8px 4px" }}>{s.created_at ? new Date(s.created_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}</td>
-                    <td style={{ padding: "8px 4px" }}>{s.template_name}</td>
-                    <td style={{ padding: "8px 4px" }}><StatusBadge status={s.status} /></td>
-                    <td style={{ padding: "8px 4px", textAlign: "right" }}>{s.total}</td>
-                    <td style={{ padding: "8px 4px", textAlign: "right", color: "#0a7d47" }}>{s.sent_count}</td>
-                    <td style={{ padding: "8px 4px", textAlign: "right", color: "#c53030" }}>{s.failed_count}</td>
-                    <td style={{ padding: "8px 4px", textAlign: "right" }}>
-                      <button className="btn-mini" onClick={() => viewDetail(s.uuid)}>View</button>
-                    </td>
+      {/* Campaigns list */}
+      {tab === "campaigns" && (
+        <div className="panel">
+          {loading ? (
+            <p className="muted">Loading...</p>
+          ) : campaigns.length === 0 ? (
+            <p className="muted">No campaigns yet. Click "+ New Campaign" to create one targeting your contacts.</p>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: "2px solid var(--border)" }}>
+                    <th style={{ textAlign: "left", padding: "8px 4px" }}>Name</th>
+                    <th style={{ textAlign: "left", padding: "8px 4px" }}>Template</th>
+                    <th style={{ textAlign: "left", padding: "8px 4px" }}>Status</th>
+                    <th style={{ textAlign: "right", padding: "8px 4px" }}>Recipients</th>
+                    <th style={{ textAlign: "right", padding: "8px 4px" }}>Sent</th>
+                    <th style={{ textAlign: "right", padding: "8px 4px" }}>Failed</th>
+                    <th style={{ textAlign: "left", padding: "8px 4px" }}>Created</th>
+                    <th style={{ textAlign: "right", padding: "8px 4px" }}></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </>
-  );
-}
+                </thead>
+                <tbody>
+                  {campaigns.map((c) => (
+                    <tr key={c.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                      <td style={{ padding: "8px 4px", fontWeight: 500, cursor: "pointer", color: "#1a7f64" }} onClick={() => viewCampaignDetail(c.id)}>{c.name}</td>
+                      <td style={{ padding: "8px 4px", fontFamily: "monospace" }}>{c.template?.name ?? "—"}</td>
+                      <td style={{ padding: "8px 4px" }}><StatusBadge status={c.status} /></td>
+                      <td style={{ padding: "8px 4px", textAlign: "right" }}>{c.total_recipients}</td>
+                      <td style={{ padding: "8px 4px", textAlign: "right", color: "#0a7d47" }}>{c.sent_count}</td>
+                      <td style={{ padding: "8px 4px", textAlign: "right", color: "#c53030" }}>{c.failed_count}</td>
+                      <td style={{ padding: "8px 4px" }}>{c.created_at ? new Date(c.created_at).toLocaleDateString("en-IN") : "—"}</td>
+                      <td style={{ padding: "8px 4px", textAlign: "right" }}>
+                        <button className="btn-mini" onClick={() => viewCampaignDetail(c.id)}>View</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
-function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, { bg: string; fg: string }> = {
-    completed: { bg: "#e7f7ef", fg: "#0a7d47" },
-    sent: { bg: "#e7f7ef", fg: "#0a7d47" },
-    processing: { bg: "#fff3cd", fg: "#856404" },
-    pending: { bg: "#eef1f2", fg: "#667781" },
-    failed: { bg: "#fdecec", fg: "#c53030" },
-  };
-  const c = colors[status] ?? colors.pending;
-  return (
-    <span style={{ background: c.bg, color: c.fg, padding: "2px 9px", borderRadius: 999, fontSize: 12, fontWeight: 600, textTransform: "capitalize" }}>
-      {status}
-    </span>
+      {/* Bulk send form */}
+      {showBulk && tab === "bulk" && (
+        <div className="panel">
+          <h2>Bulk Send</h2>
+          <form onSubmit={sendBulk}>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <div className="field" style={{ flex: 1, minWidth: 200 }}>
+                <label>Template name</label>
+                <input value={bulkTemplate} onChange={(e) => setBulkTemplate(e.target.value)} required />
+              </div>
+              <div className="field" style={{ minWidth: 200 }}>
+                <label>Language</label>
+                <div style={{ display: "flex", gap: 12, paddingTop: 8 }}>
+                  {[{ label: "English", value: "en" }, { label: "English US", value: "en_US" }, { label: "Hindi", value: "hi" }].map((l) => (
+                    <label key={l.value} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, cursor: "pointer" }}>
+                      <input type="radio" name="lang" value={l.value} checked={bulkLang === l.value} onChange={() => setBulkLang(l.value)} />
+                      {l.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="field">
+              <label>Phone numbers (one per line, or comma-separated)</label>
+              <textarea
+                value={bulkNumbers}
+                onChange={(e) => setBulkNumbers(e.target.value)}
+                rows={6}
+                placeholder={"919876543210\n919876543211\n919876543212"}
+                style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, fontSize: 13, fontFamily: "monospace", resize: "vertical" }}
+              />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span className="muted" style={{ fontSize: 12 }}>{parsedCount} numbers detected</span>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button className="btn" disabled={submitting || parsedCount === 0}>{submitting ? "Sending..." : `Send to ${parsedCount}`}</button>
+                <button type="button" className="btn" style={{ background: "#888" }} onClick={() => setShowBulk(false)}>Cancel</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Bulk send detail */}
+      {bulkDetail && tab === "bulk" && (
+        <div className="panel">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <h2>Bulk Send Detail</h2>
+            <button className="btn-mini" onClick={() => setBulkDetail(null)}>Close</button>
+          </div>
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", margin: "12px 0" }}>
+            <div><span className="muted">Template:</span> {bulkDetail.template_name}</div>
+            <div><span className="muted">Language:</span> {bulkDetail.language}</div>
+            <div><span className="muted">Status:</span> <StatusBadge status={bulkDetail.status} /></div>
+            <div><span className="muted">Total:</span> {bulkDetail.total}</div>
+            <div><span className="muted">Sent:</span> <span style={{ color: "#0a7d47" }}>{bulkDetail.sent_count}</span></div>
+            <div><span className="muted">Failed:</span> <span style={{ color: "#c53030" }}>{bulkDetail.failed_count}</span></div>
+          </div>
+          {bulkDetail.recipients.length > 0 && (
+            <div style={{ overflowX: "auto", maxHeight: 300, overflow: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                <thead>
+                  <tr style={{ borderBottom: "2px solid var(--border)" }}>
+                    <th style={{ textAlign: "left", padding: "6px 4px" }}>Phone</th>
+                    <th style={{ textAlign: "left", padding: "6px 4px" }}>Status</th>
+                    <th style={{ textAlign: "left", padding: "6px 4px" }}>Error</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bulkDetail.recipients.map((r) => (
+                    <tr key={r.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                      <td style={{ padding: "6px 4px", fontFamily: "monospace" }}>{r.phone}</td>
+                      <td style={{ padding: "6px 4px" }}><StatusBadge status={r.status} /></td>
+                      <td style={{ padding: "6px 4px", color: "var(--danger)", fontSize: 11 }}>{r.error_message || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Bulk sends list */}
+      {tab === "bulk" && (
+        <div className="panel">
+          {loading ? (
+            <p className="muted">Loading...</p>
+          ) : sends.length === 0 ? (
+            <p className="muted">No bulk sends yet.</p>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: "2px solid var(--border)" }}>
+                    <th style={{ textAlign: "left", padding: "8px 4px" }}>Template</th>
+                    <th style={{ textAlign: "left", padding: "8px 4px" }}>Language</th>
+                    <th style={{ textAlign: "left", padding: "8px 4px" }}>Status</th>
+                    <th style={{ textAlign: "right", padding: "8px 4px" }}>Total</th>
+                    <th style={{ textAlign: "right", padding: "8px 4px" }}>Sent</th>
+                    <th style={{ textAlign: "right", padding: "8px 4px" }}>Failed</th>
+                    <th style={{ textAlign: "left", padding: "8px 4px" }}>Date</th>
+                    <th style={{ textAlign: "right", padding: "8px 4px" }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sends.map((s) => (
+                    <tr key={s.uuid} style={{ borderBottom: "1px solid var(--border)" }}>
+                      <td style={{ padding: "8px 4px", fontFamily: "monospace" }}>{s.template_name}</td>
+                      <td style={{ padding: "8px 4px" }}>{s.language}</td>
+                      <td style={{ padding: "8px 4px" }}><StatusBadge status={s.status} /></td>
+                      <td style={{ padding: "8px 4px", textAlign: "right" }}>{s.total}</td>
+                      <td style={{ padding: "8px 4px", textAlign: "right", color: "#0a7d47" }}>{s.sent_count}</td>
+                      <td style={{ padding: "8px 4px", textAlign: "right", color: "#c53030" }}>{s.failed_count}</td>
+                      <td style={{ padding: "8px 4px" }}>{s.created_at ? new Date(s.created_at).toLocaleDateString("en-IN") : "—"}</td>
+                      <td style={{ padding: "8px 4px", textAlign: "right" }}>
+                        <button className="btn-mini" onClick={() => viewBulkDetail(s.uuid)}>View</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </>
   );
 }

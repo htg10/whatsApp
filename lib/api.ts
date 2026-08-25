@@ -192,6 +192,75 @@ export const api = {
       return json.data as { message: InboxMessage };
     },
   },
+
+  campaigns: {
+    list: (token: string, params?: { search?: string; status?: string; page?: number }) => {
+      const qs = new URLSearchParams();
+      if (params?.search) qs.set("search", params.search);
+      if (params?.status) qs.set("status", params.status);
+      if (params?.page) qs.set("page", String(params.page));
+      const q = qs.toString();
+      return request<{ campaigns: CampaignItem[]; meta: PaginationMeta }>(
+        `/campaigns${q ? `?${q}` : ""}`, { token }
+      );
+    },
+    get: (token: string, id: string) =>
+      request<{ campaign: CampaignDetail }>(`/campaigns/${id}`, { token }),
+    create: (token: string, body: { name: string; template_id: string; audience_filter?: { tags?: string[]; source?: string }; scheduled_at?: string }) =>
+      request<{ campaign: CampaignItem }>("/campaigns", { method: "POST", body, token }),
+    start: (token: string, id: string) =>
+      request<{ campaign: CampaignItem }>(`/campaigns/${id}/start`, { method: "POST", token }),
+    pause: (token: string, id: string) =>
+      request<{ campaign: CampaignItem }>(`/campaigns/${id}/pause`, { method: "POST", token }),
+    cancel: (token: string, id: string) =>
+      request<{ campaign: CampaignItem }>(`/campaigns/${id}/cancel`, { method: "POST", token }),
+    remove: (token: string, id: string) =>
+      request<{ message: string }>(`/campaigns/${id}`, { method: "DELETE", token }),
+  },
+
+  analytics: {
+    dashboard: (token: string) =>
+      request<DashboardStats>("/analytics/dashboard", { token }),
+    messages: (token: string, days?: number) => {
+      const qs = days ? `?days=${days}` : "";
+      return request<MessageStats>(`/analytics/messages${qs}`, { token });
+    },
+    campaigns: (token: string) =>
+      request<{ campaigns: CampaignStat[] }>("/analytics/campaigns", { token }),
+  },
+
+  automations: {
+    list: (token: string, params?: { search?: string; status?: string; page?: number }) => {
+      const qs = new URLSearchParams();
+      if (params?.search) qs.set("search", params.search);
+      if (params?.status) qs.set("status", params.status);
+      if (params?.page) qs.set("page", String(params.page));
+      const q = qs.toString();
+      return request<{ workflows: WorkflowItem[]; meta: PaginationMeta }>(
+        `/automations${q ? `?${q}` : ""}`, { token }
+      );
+    },
+    get: (token: string, id: string) =>
+      request<{ workflow: WorkflowDetail }>(`/automations/${id}`, { token }),
+    create: (token: string, body: { name: string; description?: string; trigger_type: string; trigger_config?: Record<string, unknown> }) =>
+      request<{ workflow: WorkflowItem }>("/automations", { method: "POST", body, token }),
+    update: (token: string, id: string, body: { name?: string; description?: string; trigger_type?: string; trigger_config?: Record<string, unknown> }) =>
+      request<{ workflow: WorkflowItem }>(`/automations/${id}`, { method: "PUT", body, token }),
+    remove: (token: string, id: string) =>
+      request<{ message: string }>(`/automations/${id}`, { method: "DELETE", token }),
+    saveCanvas: (token: string, id: string, body: { nodes: WfNodeData[]; edges: WfEdgeData[] }) =>
+      request<{ workflow: WorkflowDetail }>(`/automations/${id}/canvas`, { method: "PUT", body, token }),
+    activate: (token: string, id: string) =>
+      request<{ workflow: WorkflowItem }>(`/automations/${id}/activate`, { method: "POST", token }),
+    pause: (token: string, id: string) =>
+      request<{ workflow: WorkflowItem }>(`/automations/${id}/pause`, { method: "POST", token }),
+    executions: (token: string, id: string, page?: number) => {
+      const qs = page ? `?page=${page}` : "";
+      return request<{ executions: WfExecution[]; meta: PaginationMeta }>(
+        `/automations/${id}/executions${qs}`, { token }
+      );
+    },
+  },
 };
 
 export type WaNumber = {
@@ -341,5 +410,132 @@ export type InboxMessage = {
   delivered_at: string | null;
   read_at: string | null;
   failed_at: string | null;
+  created_at: string | null;
+};
+
+export type CampaignItem = {
+  id: string;
+  name: string;
+  status: string;
+  template?: { id: string; name: string; language: string } | null;
+  phone_number?: { id: string; display_phone_number: string } | null;
+  audience_filter: { tags?: string[]; source?: string } | null;
+  scheduled_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  total_recipients: number;
+  sent_count: number;
+  delivered_count: number;
+  read_count: number;
+  failed_count: number;
+  replied_count: number;
+  created_at: string | null;
+};
+
+export type CampaignContactItem = {
+  id: number;
+  contact: { id: string; name: string | null; phone: string };
+  status: string;
+  resolved_variables: Record<string, string> | null;
+  created_at: string | null;
+};
+
+export type CampaignDetail = CampaignItem & {
+  contacts?: CampaignContactItem[];
+  contacts_meta?: PaginationMeta;
+};
+
+export type DashboardStats = {
+  total_contacts: number;
+  total_conversations: number;
+  open_conversations: number;
+  messages_today: number;
+  messages_this_week: number;
+  messages_this_month: number;
+  outbound_today: number;
+  inbound_today: number;
+  templates_approved: number;
+  active_campaigns: number;
+  total_campaigns: number;
+};
+
+export type DailyMessageStat = {
+  date: string;
+  sent: number;
+  delivered: number;
+  read: number;
+  failed: number;
+  inbound: number;
+};
+
+export type MessageStats = {
+  daily: DailyMessageStat[];
+  totals: {
+    total_sent: number;
+    total_delivered: number;
+    total_read: number;
+    total_failed: number;
+    total_inbound: number;
+    delivery_rate: number;
+    read_rate: number;
+  };
+};
+
+export type CampaignStat = {
+  name: string;
+  status: string;
+  total_recipients: number;
+  sent_count: number;
+  delivered_count: number;
+  read_count: number;
+  failed_count: number;
+  delivery_rate: number;
+  read_rate: number;
+};
+
+export type WfNodeData = {
+  node_key: string;
+  family: "trigger" | "condition" | "action" | "wait";
+  type: string;
+  config?: Record<string, unknown>;
+  position_x: number;
+  position_y: number;
+  is_entry?: boolean;
+};
+
+export type WfEdgeData = {
+  source_node_key: string;
+  target_node_key: string;
+  branch?: string;
+  condition?: Record<string, unknown>;
+};
+
+export type WorkflowItem = {
+  id: string;
+  name: string;
+  description: string | null;
+  status: string;
+  trigger_type: string;
+  trigger_config: Record<string, unknown> | null;
+  version: number;
+  activated_at: string | null;
+  nodes_count?: number;
+  executions_count?: number;
+  created_at: string | null;
+};
+
+export type WorkflowDetail = WorkflowItem & {
+  nodes: WfNodeData[];
+  edges: WfEdgeData[];
+};
+
+export type WfExecution = {
+  id: string;
+  status: string;
+  current_node_key: string | null;
+  contact?: { id: string; name: string | null; phone: string } | null;
+  started_at: string | null;
+  finished_at: string | null;
+  error_message: string | null;
   created_at: string | null;
 };
