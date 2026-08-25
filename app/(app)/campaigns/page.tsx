@@ -14,7 +14,7 @@ export default function CampaignsPage() {
   const [showForm, setShowForm] = useState(false);
   const [numbers, setNumbers] = useState("");
   const [template, setTemplate] = useState("pg_owenr_welcome");
-  const [language, setLanguage] = useState("en_US");
+  const [language, setLanguage] = useState("en");
   const [submitting, setSubmitting] = useState(false);
 
   const [detail, setDetail] = useState<BulkSendDetail | null>(null);
@@ -149,12 +149,39 @@ export default function CampaignsPage() {
             </div>
             <div className="field">
               <label>Language</label>
-              <input
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                placeholder="en"
-                style={{ width: 120 }}
-              />
+              <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                {[
+                  { code: "en", label: "English" },
+                  { code: "en_US", label: "English (US)" },
+                  { code: "hi", label: "Hindi" },
+                ].map((lang) => (
+                  <label
+                    key={lang.code}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      cursor: "pointer",
+                      padding: "6px 12px",
+                      borderRadius: 8,
+                      border: language === lang.code ? "2px solid #25d366" : "1px solid var(--border)",
+                      background: language === lang.code ? "#e7f7ef" : "transparent",
+                      fontSize: 13,
+                      fontWeight: language === lang.code ? 600 : 400,
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="language"
+                      value={lang.code}
+                      checked={language === lang.code}
+                      onChange={() => setLanguage(lang.code)}
+                      style={{ display: "none" }}
+                    />
+                    {lang.label} <span style={{ color: "#888", fontSize: 11 }}>({lang.code})</span>
+                  </label>
+                ))}
+              </div>
             </div>
             <div className="field">
               <label>Phone numbers</label>

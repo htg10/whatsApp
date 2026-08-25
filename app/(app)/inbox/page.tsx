@@ -27,7 +27,85 @@ function StatusIcon({ status }: { status: string }) {
   return null;
 }
 
+function formatFileSize(bytes: number | null | undefined): string {
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1048576).toFixed(1)} MB`;
+}
+
+function detectMediaType(file: File): string {
+  if (file.type.startsWith("image/")) return "image";
+  if (file.type.startsWith("video/")) return "video";
+  if (file.type.startsWith("audio/")) return "audio";
+  return "document";
+}
+
+function formatDuration(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+const ATTACH_OPTIONS = [
+  { key: "document", label: "Document", icon: "📄", color: "#7f66ff", accept: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.csv", enabled: true },
+  { key: "photos", label: "Photos & videos", icon: "🖼️", color: "#007bfc", accept: "image/*,video/*", enabled: true },
+  { key: "camera", label: "Camera", icon: "📸", color: "#ff2e74", accept: "image/*", enabled: true, capture: true },
+  { key: "audio", label: "Audio", icon: "🎧", color: "#ee6723", accept: "audio/*,.mp3,.aac,.ogg,.opus,.amr", enabled: true },
+  { key: "contact", label: "Contact", icon: "👤", color: "#0795dc", accept: "", enabled: false },
+  { key: "poll", label: "Poll", icon: "📊", color: "#02a698", accept: "", enabled: false },
+  { key: "event", label: "Event", icon: "📅", color: "#ea4e3d", accept: "", enabled: false },
+  { key: "sticker", label: "New sticker", icon: "😃", color: "#02a698", accept: "", enabled: false },
+] as const;
+
 const FILTERS = ["all", "open", "pending", "resolved", "closed"] as const;
+
+function MediaBubble({ msg }: { msg: InboxMessage }) {
+  const att = msg.attachments?.[0];
+  if (!att) return <div>[{msg.type}]</div>;
+
+  if (att.type === "image") {
+    return (
+      <div className="bubble-media">
+        {att.url && <img src={att.url} alt={att.caption || "Image"} loading="lazy" />}
+        {att.caption && <div style={{ marginTop: 4, fontSize: 13 }}>{att.caption}</div>}
+      </div>
+    );
+  }
+
+  if (att.type === "video") {
+    return (
+      <div className="bubble-media">
+        {att.url && <video src={att.url} controls preload="metadata" style={{ maxHeight: 300 }} />}
+        {att.caption && <div style={{ marginTop: 4, fontSize: 13 }}>{att.caption}</div>}
+      </div>
+    );
+  }
+
+  if (att.type === "audio") {
+    return (
+      <div className="bubble-media">
+        {att.url && <audio src={att.url} controls preload="metadata" />}
+      </div>
+    );
+  }
+
+  return (
+    <div className="bubble-doc">
+      <div className="bubble-doc-icon">📄</div>
+      <div>
+        <div className="bubble-doc-name">{att.file_name || "Document"}</div>
+        <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+          {att.mime_type} {att.file_size ? `· ${formatFileSize(att.file_size)}` : ""}
+        </div>
+        {att.caption && <div style={{ marginTop: 4, fontSize: 13 }}>{att.caption}</div>}
+      </div>
+      {att.url && (
+        <a href={att.url} target="_blank" rel="noopener noreferrer" style={{ marginLeft: "auto", fontSize: 20, textDecoration: "none" }}>⬇</a>
+      )}
+    </div>
+  );
+}
 
 export default function InboxPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -40,8 +118,28 @@ export default function InboxPage() {
   const [filter, setFilter] = useState<string>("all");
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [showAttach, setShowAttach] = useState(false);
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [mediaType, setMediaType] = useState<string>("");
+  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+  const [caption, setCaption] = useState("");
+  const [recording, setRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [toast, setToast] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const msgPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const attachMenuRef = useRef<HTMLDivElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  }, []);
 
   const loadConversations = useCallback(async () => {
     const token = getToken();
@@ -84,7 +182,12 @@ export default function InboxPage() {
     setActiveId(conv.id);
     setMessages([]);
     setText("");
+    setCaption("");
+    setMediaFile(null);
+    setMediaPreview(null);
     setError(null);
+    setShowAttach(false);
+    stopRecording();
     loadMessages(conv.id);
 
     if (conv.unread_count > 0) {
@@ -100,8 +203,22 @@ export default function InboxPage() {
   }, [loadMessages]);
 
   useEffect(() => {
-    return () => { if (msgPollRef.current) clearInterval(msgPollRef.current); };
+    return () => {
+      if (msgPollRef.current) clearInterval(msgPollRef.current);
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
+    };
   }, []);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (attachMenuRef.current && !attachMenuRef.current.contains(e.target as Node)) {
+        setShowAttach(false);
+      }
+    }
+    if (showAttach) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showAttach]);
 
   async function sendMessage() {
     const token = getToken();
@@ -120,17 +237,177 @@ export default function InboxPage() {
     }
   }
 
+  async function sendMediaMessage() {
+    const token = getToken();
+    if (!token || !activeId || !mediaFile) return;
+    setSending(true);
+    setError(null);
+    try {
+      const res = await api.inbox.sendMedia(token, activeId, mediaFile, mediaType, caption || undefined);
+      setMessages((prev) => [res.message, ...prev]);
+      clearMedia();
+      loadConversations();
+    } catch (err) {
+      setError((err as ApiError).message);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  function clearMedia() {
+    setMediaFile(null);
+    setMediaType("");
+    setMediaPreview(null);
+    setCaption("");
+    if (fileRef.current) fileRef.current.value = "";
+    if (cameraRef.current) cameraRef.current.value = "";
+  }
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const type = detectMediaType(file);
+    setMediaFile(file);
+    setMediaType(type);
+    setShowAttach(false);
+
+    if (type === "image") {
+      const reader = new FileReader();
+      reader.onload = (ev) => setMediaPreview(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    } else if (type === "video") {
+      setMediaPreview("video");
+    } else {
+      setMediaPreview(null);
+    }
+  }
+
+  function openFileFor(accept: string) {
+    if (fileRef.current) {
+      fileRef.current.accept = accept;
+      fileRef.current.removeAttribute("capture");
+      fileRef.current.click();
+    }
+  }
+
+  function openCamera() {
+    if (cameraRef.current) {
+      cameraRef.current.click();
+    }
+    setShowAttach(false);
+  }
+
+  function handleAttachClick(opt: typeof ATTACH_OPTIONS[number]) {
+    if (!opt.enabled) {
+      showToast(`${opt.label} — coming soon`);
+      setShowAttach(false);
+      return;
+    }
+    if (opt.key === "camera") {
+      openCamera();
+    } else {
+      openFileFor(opt.accept);
+    }
+  }
+
+  // Voice recording
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const recorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: "audio/ogg" });
+        const file = new File([blob], `voice_${Date.now()}.ogg`, { type: "audio/ogg" });
+        setMediaFile(file);
+        setMediaType("audio");
+        setMediaPreview("audio-recording");
+        stream.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+        if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+        setRecording(false);
+        setRecordingTime(0);
+      };
+
+      recorder.start(250);
+      setRecording(true);
+      setRecordingTime(0);
+      recordingTimerRef.current = setInterval(() => setRecordingTime((t) => t + 1), 1000);
+    } catch {
+      showToast("Microphone access denied");
+    }
+  }
+
+  function stopRecording() {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    setRecording(false);
+    setRecordingTime(0);
+  }
+
+  function cancelRecording() {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.ondataavailable = null;
+      mediaRecorderRef.current.onstop = null;
+      mediaRecorderRef.current.stop();
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    setRecording(false);
+    setRecordingTime(0);
+    audioChunksRef.current = [];
+  }
+
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      if (mediaFile) {
+        sendMediaMessage();
+      } else {
+        sendMessage();
+      }
     }
   }
 
   const activeConv = conversations.find((c) => c.id === activeId);
+  const isMediaMessage = (type: string) => ["image", "video", "audio", "document"].includes(type);
 
   return (
     <div className="inbox-layout">
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)",
+          background: "#333", color: "#fff", padding: "10px 20px", borderRadius: 22,
+          fontSize: 13, zIndex: 999, boxShadow: "0 4px 12px rgba(0,0,0,.2)",
+          animation: "attachPop .15s ease-out",
+        }}>
+          {toast}
+        </div>
+      )}
+
       {/* Left: Conversation list */}
       <div className="convo-list">
         <div className="convo-list-header">
@@ -216,7 +493,11 @@ export default function InboxPage() {
                     key={msg.id}
                     className={msg.direction === "inbound" ? "bubble bubble-in" : "bubble bubble-out"}
                   >
-                    <div>{msg.body || `[${msg.type}]`}</div>
+                    {isMediaMessage(msg.type) && msg.attachments && msg.attachments.length > 0 ? (
+                      <MediaBubble msg={msg} />
+                    ) : (
+                      <div>{msg.body || `[${msg.type}]`}</div>
+                    )}
                     <div className="meta">
                       <span>{formatTime(msg.created_at)}</span>
                       {msg.direction === "outbound" && <StatusIcon status={msg.status} />}
@@ -226,17 +507,130 @@ export default function InboxPage() {
               )}
             </div>
 
-            <div className="compose-bar">
-              <input
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={activeConv.window_open ? "Type a message..." : "Window closed — send a template to re-open"}
-                disabled={!activeConv.window_open}
-              />
-              <button onClick={sendMessage} disabled={sending || !text.trim() || !activeConv.window_open}>
-                ➤
+            {/* Media preview bar */}
+            {mediaFile && !recording && (
+              <div className="media-preview">
+                <div className="media-preview-thumb">
+                  {mediaPreview && mediaPreview !== "video" && mediaPreview !== "audio-recording" ? (
+                    <img src={mediaPreview} alt="" style={{ width: 60, height: 60, borderRadius: 8, objectFit: "cover" }} />
+                  ) : mediaType === "video" ? (
+                    "🎬"
+                  ) : mediaType === "audio" ? (
+                    "🎤"
+                  ) : (
+                    "📄"
+                  )}
+                </div>
+                <div className="media-preview-info">
+                  <div className="media-preview-name">{mediaFile.name}</div>
+                  <div className="media-preview-size">{formatFileSize(mediaFile.size)} · {mediaType}</div>
+                </div>
+                <button className="media-preview-close" onClick={clearMedia}>✕</button>
+              </div>
+            )}
+
+            {/* Recording bar */}
+            {recording && (
+              <div className="media-preview" style={{ background: "#fef2f2" }}>
+                <div className="recording-dot" />
+                <div style={{ flex: 1, fontSize: 14, fontWeight: 500, color: "#dc2626" }}>
+                  Recording... {formatDuration(recordingTime)}
+                </div>
+                <button
+                  className="media-preview-close"
+                  onClick={cancelRecording}
+                  title="Cancel"
+                  style={{ background: "rgba(220,38,38,.15)", color: "#dc2626" }}
+                >
+                  🗑
+                </button>
+                <button
+                  className="media-preview-close"
+                  onClick={stopRecording}
+                  title="Stop & attach"
+                  style={{ background: "#dc2626", color: "#fff", fontSize: 12 }}
+                >
+                  ◼
+                </button>
+              </div>
+            )}
+
+            {/* Compose bar */}
+            <div className="compose-bar" ref={attachMenuRef}>
+              <input ref={fileRef} type="file" style={{ display: "none" }} onChange={handleFileSelect} />
+              <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={handleFileSelect} />
+
+              {/* Attachment button */}
+              <button
+                className="attach-btn"
+                onClick={() => setShowAttach((v) => !v)}
+                disabled={!activeConv.window_open || recording}
+                title="Attach"
+                style={{ transform: showAttach ? "rotate(45deg)" : "none", transition: "transform .2s" }}
+              >
+                +
               </button>
+
+              {/* Attachment menu */}
+              {showAttach && (
+                <div className="attach-menu">
+                  {ATTACH_OPTIONS.map((opt) => (
+                    <div
+                      key={opt.key}
+                      className={`attach-menu-item ${!opt.enabled ? "disabled" : ""}`}
+                      onClick={() => handleAttachClick(opt)}
+                      style={!opt.enabled ? { opacity: 0.5 } : undefined}
+                    >
+                      <div className="attach-menu-icon" style={{ background: opt.color }}>{opt.icon}</div>
+                      <span>{opt.label}</span>
+                      {!opt.enabled && <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--muted)" }}>Soon</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <input
+                value={mediaFile ? caption : text}
+                onChange={(e) => mediaFile ? setCaption(e.target.value) : setText(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={
+                  !activeConv.window_open
+                    ? "Window closed — send a template to re-open"
+                    : recording
+                    ? "Recording..."
+                    : mediaFile
+                    ? "Add a caption..."
+                    : "Type a message..."
+                }
+                disabled={!activeConv.window_open || recording}
+              />
+
+              {/* Send or Mic button */}
+              {text.trim() || mediaFile ? (
+                <button
+                  onClick={mediaFile ? sendMediaMessage : sendMessage}
+                  disabled={sending || (!mediaFile && !text.trim()) || !activeConv.window_open}
+                >
+                  ➤
+                </button>
+              ) : recording ? (
+                <button
+                  onClick={stopRecording}
+                  style={{ background: "#dc2626" }}
+                  title="Stop recording & send"
+                >
+                  ➤
+                </button>
+              ) : (
+                <button
+                  className="mic-btn"
+                  onClick={startRecording}
+                  disabled={!activeConv.window_open}
+                  title="Record voice message"
+                >
+                  🎤
+                </button>
+              )}
             </div>
           </>
         )}

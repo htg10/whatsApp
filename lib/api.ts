@@ -91,6 +91,55 @@ export const api = {
       request<{ message: string }>(`/whatsapp/numbers/${id}`, { method: "DELETE", token }),
   },
 
+  contacts: {
+    list: (token: string, params?: { search?: string; tag?: string; page?: number }) => {
+      const qs = new URLSearchParams();
+      if (params?.search) qs.set("search", params.search);
+      if (params?.tag) qs.set("tag", params.tag);
+      if (params?.page) qs.set("page", String(params.page));
+      const q = qs.toString();
+      return request<{ contacts: ContactItem[]; meta: PaginationMeta }>(
+        `/contacts${q ? `?${q}` : ""}`, { token }
+      );
+    },
+    get: (token: string, id: string) =>
+      request<{ contact: ContactItem }>(`/contacts/${id}`, { token }),
+    create: (token: string, body: { phone: string; name?: string; email?: string; company?: string; tags?: string[] }) =>
+      request<{ contact: ContactItem }>("/contacts", { method: "POST", body, token }),
+    update: (token: string, id: string, body: Record<string, unknown>) =>
+      request<{ contact: ContactItem }>(`/contacts/${id}`, { method: "PUT", body, token }),
+    remove: (token: string, id: string) =>
+      request<{ message: string }>(`/contacts/${id}`, { method: "DELETE", token }),
+    import: (token: string, contacts: { phone: string; name?: string; email?: string; company?: string; tags?: string[] }[]) =>
+      request<{ created: number; updated: number; skipped: number; total: number }>("/contacts/import", { method: "POST", body: { contacts }, token }),
+  },
+
+  tags: {
+    list: (token: string) =>
+      request<{ tags: TagItem[] }>("/tags", { token }),
+    create: (token: string, name: string, color?: string) =>
+      request<{ tag: TagItem }>("/tags", { method: "POST", body: { name, color }, token }),
+    remove: (token: string, id: string) =>
+      request<{ message: string }>(`/tags/${id}`, { method: "DELETE", token }),
+  },
+
+  templates: {
+    list: (token: string, params?: { search?: string; status?: string; category?: string }) => {
+      const qs = new URLSearchParams();
+      if (params?.search) qs.set("search", params.search);
+      if (params?.status) qs.set("status", params.status);
+      if (params?.category) qs.set("category", params.category);
+      const q = qs.toString();
+      return request<{ templates: TemplateItem[]; meta: PaginationMeta }>(
+        `/templates${q ? `?${q}` : ""}`, { token }
+      );
+    },
+    get: (token: string, id: string) =>
+      request<{ template: TemplateItem }>(`/templates/${id}`, { token }),
+    sync: (token: string) =>
+      request<{ message: string; synced: number }>("/templates/sync", { method: "POST", token }),
+  },
+
   bulk: {
     list: (token: string, page?: number) => {
       const qs = page ? `?page=${page}` : "";
@@ -125,6 +174,23 @@ export const api = {
       request<{ message: string }>(`/whatsapp/conversations/${conversationId}/mark-read`, { method: "POST", token }),
     send: (token: string, conversationId: string, body: { type?: "text" | "template"; body?: string; template?: string; language?: string }) =>
       request<{ message: InboxMessage }>(`/whatsapp/conversations/${conversationId}/send`, { method: "POST", body, token }),
+    sendMedia: async (token: string, conversationId: string, file: File, mediaType: string, caption?: string) => {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("media_type", mediaType);
+      if (caption) form.append("caption", caption);
+      const res = await fetch(`${BASE}/whatsapp/conversations/${conversationId}/send-media`, {
+        method: "POST",
+        headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+        body: form,
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || (json && json.success === false)) {
+        const err: ApiError = { message: json?.message ?? `Upload failed (${res.status})`, errors: json?.errors, status: res.status };
+        throw err;
+      }
+      return json.data as { message: InboxMessage };
+    },
   },
 };
 
@@ -192,6 +258,48 @@ export type Conversation = {
   created_at: string | null;
 };
 
+export type PaginationMeta = { current_page: number; last_page: number; total: number };
+
+export type ContactItem = {
+  id: string;
+  phone: string;
+  wa_id: string;
+  name: string | null;
+  email: string | null;
+  company: string | null;
+  source: string | null;
+  language: string | null;
+  country: string | null;
+  is_blocked: boolean;
+  opted_out: boolean;
+  last_interaction_at: string | null;
+  tags?: TagItem[];
+  assigned_agent?: { id: string; name: string } | null;
+  conversations_count?: number;
+  created_at: string | null;
+};
+
+export type TagItem = {
+  id: string;
+  name: string;
+  color: string;
+  contacts_count?: number;
+};
+
+export type TemplateItem = {
+  id: string;
+  name: string;
+  language: string;
+  category: string;
+  status: string;
+  rejection_reason: string | null;
+  quality_score: string | null;
+  last_synced_at: string | null;
+  components?: { type: string; format: string | null; text: string | null; buttons: unknown[] | null }[];
+  waba?: { id: string; name: string };
+  created_at: string | null;
+};
+
 export type BulkSend = {
   id: number;
   uuid: string;
@@ -226,7 +334,7 @@ export type InboxMessage = {
   status: string;
   external_message_id: string | null;
   sender?: { id: string; name: string } | null;
-  attachments?: { type: string; mime_type: string | null; file_name: string | null; caption: string | null; url: string | null }[];
+  attachments?: { type: string; mime_type: string | null; file_name: string | null; file_size: number | null; caption: string | null; url: string | null }[];
   error_code: string | null;
   error_message: string | null;
   sent_at: string | null;
