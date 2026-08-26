@@ -31,10 +31,10 @@ export default function LoginPage() {
   return (
     <div className="auth-wrap">
       <div className="card">
-        <div className="brand">
-          <span className="dot">✆</span> WhatsApp SaaS
+        <div className="brand" style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+          <img src="/logo.png" alt="PiziDesk" style={{ width: "100%", maxWidth: 220, height: "auto", borderRadius: 10 }} />
         </div>
-        <p className="subtitle">Sign in to your workspace</p>
+        <p className="subtitle" style={{ textAlign: "center" }}>Sign in to your workspace</p>
 
         {error && <div className="error">{error}</div>}
 

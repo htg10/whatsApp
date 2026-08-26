@@ -263,6 +263,47 @@ export const api = {
       );
     },
   },
+
+  chatbot: {
+    list: (token: string, params?: { search?: string; page?: number }) => {
+      const qs = new URLSearchParams();
+      if (params?.search) qs.set("search", params.search);
+      if (params?.page) qs.set("page", String(params.page));
+      const q = qs.toString();
+      return request<{ chatbots: ChatbotItem[]; meta: PaginationMeta }>(
+        `/chatbots${q ? `?${q}` : ""}`, { token }
+      );
+    },
+    get: (token: string, id: string) =>
+      request<{ chatbot: ChatbotDetail }>(`/chatbots/${id}`, { token }),
+    create: (token: string, body: { name: string; phone_number_id?: string | null; welcome_message?: string | null; fallback_message?: string | null; is_active?: boolean }) =>
+      request<{ chatbot: ChatbotItem }>("/chatbots", { method: "POST", body, token }),
+    update: (token: string, id: string, body: Record<string, unknown>) =>
+      request<{ chatbot: ChatbotItem }>(`/chatbots/${id}`, { method: "PUT", body, token }),
+    remove: (token: string, id: string) =>
+      request<{ message: string }>(`/chatbots/${id}`, { method: "DELETE", token }),
+    toggle: (token: string, id: string) =>
+      request<{ chatbot: ChatbotItem }>(`/chatbots/${id}/toggle`, { method: "POST", token }),
+    addRule: (token: string, id: string, body: { keyword: string; match_type: string; response_text?: string | null; response_type?: string; template_name?: string | null; priority?: number; is_active?: boolean }) =>
+      request<{ rule: ChatbotRuleItem }>(`/chatbots/${id}/rules`, { method: "POST", body, token }),
+    updateRule: (token: string, botId: string, ruleId: string, body: Record<string, unknown>) =>
+      request<{ rule: ChatbotRuleItem }>(`/chatbots/${botId}/rules/${ruleId}`, { method: "PUT", body, token }),
+    deleteRule: (token: string, botId: string, ruleId: string) =>
+      request<{ message: string }>(`/chatbots/${botId}/rules/${ruleId}`, { method: "DELETE", token }),
+  },
+
+  agents: {
+    list: (token: string) =>
+      request<{ agents: AgentItem[] }>("/agents", { token }),
+    get: (token: string, id: string) =>
+      request<{ agent: AgentDetail }>(`/agents/${id}`, { token }),
+    assign: (token: string, body: { conversation_id: string; agent_id: string }) =>
+      request<{ message: string }>("/agents/assign", { method: "POST", body, token }),
+    unassign: (token: string, body: { conversation_id: string }) =>
+      request<{ message: string }>("/agents/unassign", { method: "POST", body, token }),
+    stats: (token: string) =>
+      request<{ stats: AgentStat[] }>("/agents/stats", { token }),
+  },
 };
 
 export type WaNumber = {
@@ -540,4 +581,55 @@ export type WfExecution = {
   finished_at: string | null;
   error_message: string | null;
   created_at: string | null;
+};
+
+// Phase 14: Chatbot
+export type ChatbotRuleItem = {
+  id: string;
+  keyword: string;
+  match_type: string;
+  response_text: string | null;
+  response_type: string;
+  template_name: string | null;
+  priority: number;
+  is_active: boolean;
+};
+
+export type ChatbotItem = {
+  id: string;
+  name: string;
+  is_active: boolean;
+  welcome_message: string | null;
+  fallback_message: string | null;
+  phone_number?: { id: string; display_phone_number: string } | null;
+  rules_count?: number;
+  created_at: string | null;
+};
+
+export type ChatbotDetail = ChatbotItem & {
+  rules: ChatbotRuleItem[];
+};
+
+// Phase 15: Agents
+export type AgentItem = {
+  id: string;
+  name: string;
+  email: string;
+  roles: string[];
+  active_conversations_count: number;
+  total_handled: number;
+};
+
+export type AgentDetail = AgentItem & {
+  conversations?: { id: string; contact_name: string | null; contact_phone: string; status: string; last_message_at: string | null }[];
+};
+
+export type AgentStat = {
+  id: string;
+  name: string;
+  open: number;
+  pending: number;
+  resolved: number;
+  closed: number;
+  total: number;
 };

@@ -44,10 +44,10 @@ export default function RegisterPage() {
   return (
     <div className="auth-wrap">
       <div className="card">
-        <div className="brand">
-          <span className="dot">✆</span> WhatsApp SaaS
+        <div className="brand" style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+          <img src="/logo.png" alt="PiziDesk" style={{ width: "100%", maxWidth: 220, height: "auto", borderRadius: 10 }} />
         </div>
-        <p className="subtitle">Create your company workspace — 14-day free trial</p>
+        <p className="subtitle" style={{ textAlign: "center" }}>Create your company workspace — 14-day free trial</p>
 
         {error && <div className="error">{error}</div>}
 

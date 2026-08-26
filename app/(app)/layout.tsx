@@ -46,7 +46,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <UserContext.Provider value={user}>
       <div className="shell">
         <aside className="sidebar">
-          <div className="logo"><span>✆</span> WhatsApp SaaS</div>
+          <div className="logo" style={{ display: "flex", justifyContent: "center", padding: "4px 0 12px" }}>
+            <img src="/logo.png" alt="PiziDesk" style={{ width: "100%", maxWidth: 180, height: "auto", borderRadius: 8 }} />
+          </div>
           <nav>
             {NAV.map((item) => {
               const active = pathname === item.href || pathname.startsWith(item.href + "/");
