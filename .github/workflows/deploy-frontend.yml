@@ -1,0 +1,53 @@
+name: Deploy frontend to Hostinger
+
+# Every push to main: build the static export and upload it to Hostinger over
+# FTP. dangerous-clean-slate wipes the target folder first, so old build chunks
+# can never linger and cause ChunkLoadError, and .htaccess is always restored.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build static export
+        # Uses .env.production -> NEXT_PUBLIC_API_URL=https://main.heltog.com/api/v1
+        run: npm run build
+
+      - name: Verify build is self-consistent (no missing chunks)
+        run: |
+          miss=0
+          while read -r html; do
+            while read -r a; do
+              [ -f "out${a}" ] || { echo "MISSING: $a (referenced in $html)"; miss=$((miss+1)); }
+            done < <(grep -ohE '/_next/static/[^"]+\.(js|css)' "$html" | sort -u)
+          done < <(find out -name '*.html')
+          if [ "$miss" -ne 0 ]; then echo "Build has $miss missing assets — aborting deploy."; exit 1; fi
+          echo "Build OK — all referenced assets present."
+
+      - name: Deploy to Hostinger via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: ./out/
+          server-dir: ${{ secrets.FTP_SERVER_DIR }}
+          # The action tracks a sync-state file on the server, so from the second
+          # deploy on it automatically DELETES chunks removed by a new build —
+          # keeping the server clean without the risk of wiping the whole folder.
