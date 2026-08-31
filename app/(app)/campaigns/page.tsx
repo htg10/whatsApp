@@ -99,6 +99,32 @@ export default function CampaignsPage() {
     } catch {}
   }
 
+  // Open Bulk Send and load the tenant's approved templates for the dropdown.
+  async function openBulk() {
+    if (showBulk) { setShowBulk(false); return; }
+    setShowBulk(true);
+    setShowCreate(false);
+    setError(null);
+    const token = getToken();
+    if (!token) return;
+    try {
+      const t = await api.templates.list(token, { status: "APPROVED" });
+      setTemplates(t.templates);
+      // Default the picker to the first approved template if the current one isn't in the list.
+      if (t.templates.length > 0 && !t.templates.some((x) => x.name === bulkTemplate)) {
+        setBulkTemplate(t.templates[0].name);
+        setBulkLang(t.templates[0].language || "en");
+      }
+    } catch {}
+  }
+
+  // When a template is picked, set both its name and its language.
+  function pickBulkTemplate(name: string) {
+    setBulkTemplate(name);
+    const tpl = templates.find((t) => t.name === name);
+    if (tpl?.language) setBulkLang(tpl.language);
+  }
+
   async function createCampaign(e: React.FormEvent) {
     e.preventDefault();
     const token = getToken();
@@ -214,7 +240,7 @@ export default function CampaignsPage() {
                 + New Campaign
               </button>
             ) : (
-              <button className="btn" style={{ width: "auto", padding: "10px 18px" }} onClick={() => { setShowBulk((v) => !v); setShowCreate(false); setError(null); }}>
+              <button className="btn" style={{ width: "auto", padding: "10px 18px" }} onClick={openBulk}>
                 {showBulk ? "Close" : "+ Bulk Send"}
               </button>
             )}
@@ -401,11 +427,25 @@ export default function CampaignsPage() {
           <h2>Bulk Send</h2>
           <form onSubmit={sendBulk}>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <div className="field" style={{ flex: 1, minWidth: 200 }}>
-                <label>Template name</label>
-                <input value={bulkTemplate} onChange={(e) => setBulkTemplate(e.target.value)} required />
+              <div className="field" style={{ flex: 1, minWidth: 240 }}>
+                <label>Template</label>
+                {templates.length > 0 ? (
+                  <select value={bulkTemplate} onChange={(e) => pickBulkTemplate(e.target.value)} required>
+                    {!templates.some((t) => t.name === bulkTemplate) && <option value={bulkTemplate}>{bulkTemplate} (manual)</option>}
+                    {templates.map((t) => (
+                      <option key={t.id} value={t.name}>
+                        {t.name} · {t.language}{t.category ? ` · ${t.category.toLowerCase()}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input value={bulkTemplate} onChange={(e) => setBulkTemplate(e.target.value)} required placeholder="No approved templates found — type a name" />
+                )}
+                <span className="muted" style={{ fontSize: 12, marginTop: 4, display: "block" }}>
+                  {templates.length > 0 ? `${templates.length} approved template${templates.length === 1 ? "" : "s"} available` : "Only approved templates can be sent."}
+                </span>
               </div>
-              <div className="field" style={{ minWidth: 200 }}>
+              <div className="field" style={{ minWidth: 180 }}>
                 <label>Language</label>
                 <div style={{ display: "flex", gap: 12, paddingTop: 8 }}>
                   {[{ label: "English", value: "en" }, { label: "English US", value: "en_US" }, { label: "Hindi", value: "hi" }].map((l) => (
@@ -415,6 +455,7 @@ export default function CampaignsPage() {
                     </label>
                   ))}
                 </div>
+                <span className="muted" style={{ fontSize: 12, marginTop: 4, display: "block" }}>Auto-set from template; change if needed.</span>
               </div>
             </div>
             <div className="field">
