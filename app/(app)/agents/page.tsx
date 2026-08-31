@@ -88,7 +88,7 @@ export default function AgentsPage() {
       </div>
 
       {loading ? (
-        <p className="muted">Loading…</p>
+        <div className="loading-block"><span className="spinner" /><span>Loading…</span></div>
       ) : tab === "roster" ? (
         agents.length === 0 ? (
           <div className="panel" style={{ textAlign: "center", padding: 40 }}>
@@ -162,7 +162,7 @@ export default function AgentsPage() {
         <div className="msg-info-overlay" onClick={() => setDetail(null)}>
           <div className="msg-info-panel" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
             {detailLoading || !detail ? (
-              <p className="muted">Loading…</p>
+              <div className="loading-block"><span className="spinner" /><span>Loading…</span></div>
             ) : (
               <>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>

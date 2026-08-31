@@ -304,6 +304,21 @@ export const api = {
     stats: (token: string) =>
       request<{ stats: AgentStat[] }>("/agents/stats", { token }),
   },
+
+  billing: {
+    overview: (token: string) =>
+      request<{ subscription: SubscriptionItem2 | null; wallet: WalletInfo; tenant: { status: string | null; trial_ends_at: string | null } }>(
+        "/billing", { token }
+      ),
+    plans: (token: string) =>
+      request<{ plans: PlanItem[] }>("/billing/plans", { token }),
+    wallet: (token: string) =>
+      request<{ wallet: WalletInfo; transactions: WalletTxn[] }>("/billing/wallet", { token }),
+    invoices: (token: string) =>
+      request<{ invoices: InvoiceItem[]; meta: PaginationMeta }>("/billing/invoices", { token }),
+    subscribe: (token: string, planId: string) =>
+      request<{ subscription: SubscriptionItem2 }>("/billing/subscribe", { method: "POST", body: { plan_id: planId }, token }),
+  },
 };
 
 export type WaNumber = {
@@ -632,4 +647,57 @@ export type AgentStat = {
   resolved: number;
   closed: number;
   total: number;
+};
+
+// Phase 17: Billing
+export type PlanItem = {
+  id: string;
+  name: string;
+  description: string | null;
+  billing_period: string;
+  price: number;
+  price_display: string;
+  currency: string;
+  trial_days: number;
+  features: string[];
+  limits: Record<string, unknown>;
+};
+
+export type SubscriptionItem2 = {
+  id: string;
+  status: string;
+  plan: PlanItem | null;
+  trial_ends_at: string | null;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  cancelled_at: string | null;
+};
+
+export type WalletInfo = {
+  balance: string;
+  balance_minor: number;
+  reserved: string;
+  currency: string;
+  auto_recharge: boolean;
+};
+
+export type WalletTxn = {
+  id: string;
+  type: string;
+  amount: string;
+  amount_minor: number;
+  balance_after: string;
+  description: string | null;
+  created_at: string | null;
+};
+
+export type InvoiceItem = {
+  id: string;
+  number: string | null;
+  status: string;
+  total: string;
+  currency: string;
+  issued_at: string | null;
+  paid_at: string | null;
+  due_at: string | null;
 };

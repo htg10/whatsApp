@@ -207,7 +207,7 @@ export default function ChatbotPage() {
         {notice && <div className="panel" style={{ background: "#e7f7ef", color: "#0a7d47", marginBottom: 16 }}>{notice}</div>}
 
         {loading ? (
-          <p className="muted">Loading…</p>
+          <div className="loading-block"><span className="spinner" /><span>Loading…</span></div>
         ) : bots.length === 0 ? (
           <div className="panel" style={{ textAlign: "center", padding: 40 }}>
             <div style={{ fontSize: 40 }}>🤖</div>

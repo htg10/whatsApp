@@ -316,7 +316,7 @@ export default function ContactsPage() {
       {/* Contacts table */}
       <div className="panel">
         {loading ? (
-          <p className="muted">Loading…</p>
+          <div className="loading-block"><span className="spinner" /><span>Loading…</span></div>
         ) : contacts.length === 0 ? (
           <p className="muted">No contacts found. Add contacts or import a CSV.</p>
         ) : (

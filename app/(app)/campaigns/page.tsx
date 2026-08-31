@@ -355,7 +355,7 @@ export default function CampaignsPage() {
       {tab === "campaigns" && (
         <div className="panel">
           {loading ? (
-            <p className="muted">Loading...</p>
+            <div className="loading-block"><span className="spinner" /><span>Loading…</span></div>
           ) : campaigns.length === 0 ? (
             <p className="muted">No campaigns yet. Click "+ New Campaign" to create one targeting your contacts.</p>
           ) : (
@@ -482,7 +482,7 @@ export default function CampaignsPage() {
       {tab === "bulk" && (
         <div className="panel">
           {loading ? (
-            <p className="muted">Loading...</p>
+            <div className="loading-block"><span className="spinner" /><span>Loading…</span></div>
           ) : sends.length === 0 ? (
             <p className="muted">No bulk sends yet.</p>
           ) : (

@@ -327,7 +327,7 @@ export default function AutomationsPage() {
 
         <div className="panel">
           {loading ? (
-            <p className="muted">Loading...</p>
+            <div className="loading-block"><span className="spinner" /><span>Loading…</span></div>
           ) : workflows.length === 0 ? (
             <p className="muted">No workflows yet. Click "+ New Workflow" to create one.</p>
           ) : (

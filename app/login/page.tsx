@@ -54,6 +54,9 @@ export default function LoginPage() {
           New here? <Link href="/register">Create an account</Link>
         </div>
       </div>
+      <div style={{ marginTop: 18, fontSize: 12, color: "var(--muted)", textAlign: "center" }}>
+        © {new Date().getFullYear()} Pizi India Pvt Ltd
+      </div>
     </div>
   );
 }

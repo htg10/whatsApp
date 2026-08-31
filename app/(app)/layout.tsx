@@ -7,6 +7,7 @@ import { api, ApiError, User } from "@/lib/api";
 import { getToken, clearToken } from "@/lib/auth";
 import { NAV } from "@/lib/nav";
 import { UserContext } from "@/lib/user-context";
+import { Preloader } from "@/components/Preloader";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -40,7 +41,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   if (error) return <div className="center-screen">Error: {error}</div>;
-  if (!user) return <div className="center-screen">Loading…</div>;
+  if (!user) return <Preloader label="Loading your workspace…" />;
 
   return (
     <UserContext.Provider value={user}>
@@ -64,6 +65,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <div style={{ fontSize: 13, color: "#cfe0dc" }}>{user.name}</div>
             <div style={{ fontSize: 12, color: "#9fc0b8", marginBottom: 10 }}>{user.email}</div>
             <button className="btn-ghost" onClick={logout}>Log out</button>
+            <div style={{ marginTop: 16, fontSize: 11, color: "#7fa89f", lineHeight: 1.5 }}>
+              © {new Date().getFullYear()} Pizi India Pvt Ltd
+            </div>
           </div>
         </aside>
         <main className="main">{children}</main>

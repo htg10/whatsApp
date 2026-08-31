@@ -81,6 +81,9 @@ export default function RegisterPage() {
           Already have an account? <Link href="/login">Sign in</Link>
         </div>
       </div>
+      <div style={{ marginTop: 18, fontSize: 12, color: "var(--muted)", textAlign: "center" }}>
+        © {new Date().getFullYear()} Pizi India Pvt Ltd
+      </div>
     </div>
   );
 }
