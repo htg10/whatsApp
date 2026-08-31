@@ -10,10 +10,12 @@ import { UserContext } from "@/lib/user-context";
 import { Preloader } from "@/components/Preloader";
 
 const ROLE_LABELS: Record<string, string> = {
-  "tenant-owner": "Owner",
-  "manager": "Manager",
-  "agent": "Agent",
+  "tenant-owner": "Admin",
+  "user": "User",
   "super-admin": "Admin",
+  // legacy roles, still labelled sensibly if present
+  "manager": "Manager",
+  "agent": "User",
 };
 function roleLabel(role: string): string {
   return ROLE_LABELS[role] ?? role;

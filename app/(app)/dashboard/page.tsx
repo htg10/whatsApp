@@ -7,7 +7,7 @@ import { api, DashboardStats } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 
 const ROLE_LABELS: Record<string, string> = {
-  "tenant-owner": "Owner", "manager": "Manager", "agent": "Agent", "super-admin": "Admin",
+  "tenant-owner": "Admin", "user": "User", "super-admin": "Admin", "manager": "Manager", "agent": "User",
 };
 
 function StatCard({ icon, bg, label, value, color }: { icon: string; bg: string; label: string; value: React.ReactNode; color?: string }) {
@@ -28,7 +28,7 @@ export default function DashboardPage() {
   const [numbers, setNumbers] = useState(0);
 
   const perms = user.permissions ?? [];
-  const isAdmin = perms.includes("team.view") || perms.includes("billing.view");
+  const isAdmin = (user.roles ?? []).includes("tenant-owner") || user.is_super_admin;
   const can = (p: string) => perms.includes(p);
 
   useEffect(() => {
