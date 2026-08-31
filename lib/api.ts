@@ -322,10 +322,10 @@ export const api = {
 
   team: {
     list: (token: string) =>
-      request<{ members: TeamMember[]; roles: RoleOption[]; features: FeatureOption[] }>("/team", { token }),
-    create: (token: string, body: { name: string; email: string; password: string; role: string; features: string[] }) =>
+      request<{ members: TeamMember[]; roles: RoleOption[] }>("/team", { token }),
+    create: (token: string, body: { name: string; email: string; password: string; role: string }) =>
       request<{ member: TeamMember }>("/team", { method: "POST", body, token }),
-    update: (token: string, id: string, body: { name?: string; role?: string; features?: string[] }) =>
+    update: (token: string, id: string, body: { name?: string; role?: string }) =>
       request<{ member: TeamMember }>(`/team/${id}`, { method: "PUT", body, token }),
     toggle: (token: string, id: string) =>
       request<{ member: TeamMember }>(`/team/${id}/toggle`, { method: "POST", token }),
@@ -341,13 +341,11 @@ export type TeamMember = {
   status: string;
   role: string;            // "admin" | "user"
   role_label: string;      // "Admin" | "User"
-  features: string[];      // feature keys the user can access
   last_login_at: string | null;
   created_at: string | null;
 };
 
 export type RoleOption = { value: string; label: string };
-export type FeatureOption = { key: string; label: string };
 
 export type WaNumber = {
   id: string;
