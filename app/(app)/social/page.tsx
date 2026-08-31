@@ -1,42 +1,340 @@
 "use client";
 
+import { useCallback, useEffect, useRef, useState } from "react";
+import { api, ApiError, SocialConnection, SocialPost } from "@/lib/api";
+import { getToken } from "@/lib/auth";
+import { useUser } from "@/lib/user-context";
 import { PageHeader } from "@/components/PageHeader";
+import { LoadingBlock } from "@/components/Preloader";
 
 export default function SocialPage() {
+  const me = useUser();
+  const perms = me.permissions ?? [];
+  const canConnect = perms.includes("whatsapp.manage");
+  const canPost = perms.includes("campaigns.create");
+
+  const [connection, setConnection] = useState<SocialConnection | null>(null);
+  const [posts, setPosts] = useState<SocialPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // connect form
+  const [showConnect, setShowConnect] = useState(false);
+  const [connForm, setConnForm] = useState({ page_id: "", page_access_token: "" });
+  const [connecting, setConnecting] = useState(false);
+
+  // compose
+  const [caption, setCaption] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageMode, setImageMode] = useState<"url" | "upload">("url");
+  const [targets, setTargets] = useState<string[]>(["facebook"]);
+  const [scheduleOn, setScheduleOn] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState("");
+  const [posting, setPosting] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const load = useCallback(async () => {
+    const token = getToken();
+    if (!token) return;
+    setLoading(true);
+    try {
+      const [c, p] = await Promise.all([
+        api.social.connection(token),
+        api.social.posts(token).catch(() => ({ posts: [] as SocialPost[] })),
+      ]);
+      setConnection(c.connection);
+      setPosts(p.posts);
+    } catch (err) {
+      setError((err as ApiError).message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  function flash(msg: string) {
+    setNotice(msg);
+    setTimeout(() => setNotice(null), 4000);
+  }
+
+  async function connect(e: React.FormEvent) {
+    e.preventDefault();
+    const token = getToken();
+    if (!token) return;
+    setConnecting(true);
+    setError(null);
+    try {
+      const res = await api.social.connect(token, connForm);
+      setConnection(res.connection);
+      setShowConnect(false);
+      flash(`Connected to ${res.connection.page_name ?? "your Page"}.`);
+    } catch (err) {
+      setError((err as ApiError).message);
+    } finally {
+      setConnecting(false);
+    }
+  }
+
+  async function disconnect() {
+    const token = getToken();
+    if (!token) return;
+    if (!confirm("Disconnect this Facebook Page & Instagram account?")) return;
+    try {
+      await api.social.disconnect(token);
+      setConnection(null);
+      flash("Disconnected.");
+    } catch (err) {
+      setError((err as ApiError).message);
+    }
+  }
+
+  function toggleTarget(t: string) {
+    setTargets((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+  }
+
+  async function submitPost(e: React.FormEvent) {
+    e.preventDefault();
+    const token = getToken();
+    if (!token) return;
+    if (targets.length === 0) { setError("Select at least one destination (Facebook or Instagram)."); return; }
+    if (imageMode === "url" && !imageUrl) { setError("Paste a public image URL, or switch to upload."); return; }
+    if (imageMode === "upload" && !imageFile) { setError("Choose an image to upload."); return; }
+    setPosting(true);
+    setError(null);
+    try {
+      const res = await api.social.createPost(token, {
+        caption,
+        targets,
+        image_url: imageMode === "url" ? imageUrl : undefined,
+        image: imageMode === "upload" ? imageFile : undefined,
+        scheduled_at: scheduleOn && scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
+      });
+      const st = res.post.status;
+      flash(st === "scheduled" ? "Post scheduled." : st === "published" ? "Published! 🎉" : st === "partial" ? "Published with some errors — see below." : "Post failed — see details below.");
+      setCaption(""); setImageUrl(""); setImageFile(null); if (fileRef.current) fileRef.current.value = "";
+      setScheduleOn(false); setScheduledAt("");
+      await load();
+    } catch (err) {
+      setError((err as ApiError).message);
+    } finally {
+      setPosting(false);
+    }
+  }
+
+  async function publishNow(p: SocialPost) {
+    const token = getToken();
+    if (!token) return;
+    try {
+      const res = await api.social.publishPost(token, p.id);
+      setPosts((prev) => prev.map((x) => (x.id === p.id ? res.post : x)));
+      flash(res.post.status === "published" ? "Published! 🎉" : "Attempted — see status.");
+    } catch (err) {
+      setError((err as ApiError).message);
+    }
+  }
+
+  const igLinked = connection?.instagram_linked;
+  const preview = imageMode === "upload" && imageFile ? URL.createObjectURL(imageFile) : imageUrl;
+
+  const statusColor = (s: string) => s === "published" ? { bg: "#e7f7ef", fg: "#0a7d47" }
+    : s === "scheduled" ? { bg: "#fff3cd", fg: "#856404" }
+    : s === "partial" ? { bg: "#fff3e0", fg: "#b45309" }
+    : s === "failed" ? { bg: "#fdecec", fg: "#c53030" }
+    : { bg: "#eef1f2", fg: "#667781" };
+
   return (
     <div>
-      <PageHeader title="Social" subtitle="Publish to Facebook & Instagram from PiziDesk." />
+      <PageHeader
+        title="Social"
+        subtitle="Publish to your Facebook Page and Instagram from PiziDesk."
+        action={connection && canConnect ? <button className="btn-mini" onClick={disconnect}>Disconnect</button> : undefined}
+      />
 
-      <div className="panel" style={{
-        textAlign: "center", padding: "48px 24px",
-        background: "linear-gradient(135deg,#f5f0ff,#eef7ff)",
-      }}>
-        <div style={{ fontSize: 46 }}>📸</div>
-        <h2 style={{ margin: "12px 0 6px" }}>Facebook &amp; Instagram publishing</h2>
-        <p className="muted" style={{ maxWidth: 460, margin: "0 auto 20px" }}>
-          Compose a post once — image plus caption — and publish it to your Facebook Page
-          and Instagram Business account, now or scheduled for later. Coming very soon.
-        </p>
+      {error && <div className="error">{error}</div>}
+      {notice && <div className="panel" style={{ background: "#e7f7ef", color: "#0a7d47", marginBottom: 16 }}>{notice}</div>}
 
-        {/* Compose preview */}
-        <div style={{ maxWidth: 380, margin: "0 auto", textAlign: "left", background: "#fff", borderRadius: 14, boxShadow: "0 8px 30px rgba(0,0,0,.08)", overflow: "hidden" }}>
-          <div style={{ height: 150, background: "linear-gradient(135deg,#128c7e22,#25d36622)", display: "flex", alignItems: "center", justifyContent: "center", color: "#8aa", fontSize: 13 }}>
-            🖼️ Post image
-          </div>
-          <div style={{ padding: 14 }}>
-            <div style={{ fontSize: 13, color: "#54656f", marginBottom: 12 }}>Diwali sale — 20% off everything! 🎉 #festival #offer</div>
-            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-              <span style={{ fontSize: 12, fontWeight: 600, background: "#e7f0ff", color: "#1877f2", padding: "4px 10px", borderRadius: 999 }}>f  Facebook</span>
-              <span style={{ fontSize: 12, fontWeight: 600, background: "#fdeef5", color: "#c13584", padding: "4px 10px", borderRadius: 999 }}>◙  Instagram</span>
+      {loading ? (
+        <LoadingBlock label="Loading…" />
+      ) : !connection ? (
+        // ---- Not connected ----
+        <div className="panel" style={{ textAlign: "center", padding: 40, background: "linear-gradient(135deg,#f5f0ff,#eef7ff)" }}>
+          <div style={{ fontSize: 44 }}>📸</div>
+          <h2 style={{ margin: "12px 0 6px" }}>Connect Facebook &amp; Instagram</h2>
+          <p className="muted" style={{ maxWidth: 460, margin: "0 auto 18px" }}>
+            Link your Facebook Page (and its connected Instagram Business account) to publish posts from here.
+          </p>
+          {canConnect ? (
+            <button className="btn" onClick={() => setShowConnect(true)}>Connect a Facebook Page</button>
+          ) : (
+            <p className="muted">Ask your workspace admin to connect a Facebook Page.</p>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* Connected banner */}
+          <div className="panel" style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+            <div style={{ fontSize: 30 }}>✅</div>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontWeight: 700 }}>{connection.page_name ?? "Facebook Page"}</div>
+              <div className="muted" style={{ fontSize: 13 }}>
+                Facebook Page connected
+                {igLinked ? ` · Instagram @${connection.ig_username}` : " · No Instagram linked"}
+              </div>
             </div>
-            <button className="btn" style={{ width: "100%" }} disabled>Publish (coming soon)</button>
+            <div style={{ display: "flex", gap: 6 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, background: "#e7f0ff", color: "#1877f2", padding: "4px 10px", borderRadius: 999 }}>f Facebook</span>
+              <span style={{ fontSize: 12, fontWeight: 600, background: igLinked ? "#fdeef5" : "#eef1f2", color: igLinked ? "#c13584" : "#98a2ab", padding: "4px 10px", borderRadius: 999 }}>◙ Instagram</span>
+            </div>
+          </div>
+
+          {/* Compose */}
+          {canPost && (
+            <div className="panel">
+              <h2 style={{ marginTop: 0 }}>New post</h2>
+              <form onSubmit={submitPost}>
+                <div className="grid" style={{ gridTemplateColumns: "1.2fr 1fr", gap: 18, alignItems: "start" }}>
+                  <div>
+                    <div className="field">
+                      <label>Caption</label>
+                      <textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={5} placeholder="Write a caption… #hashtags welcome" />
+                    </div>
+
+                    <div className="field">
+                      <label>Photo</label>
+                      <div className="filter-tabs" style={{ marginBottom: 10 }}>
+                        <button type="button" className={imageMode === "url" ? "active" : ""} onClick={() => setImageMode("url")}>Paste URL</button>
+                        <button type="button" className={imageMode === "upload" ? "active" : ""} onClick={() => setImageMode("upload")}>Upload</button>
+                      </div>
+                      {imageMode === "url" ? (
+                        <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://example.com/photo.jpg" />
+                      ) : (
+                        <input ref={fileRef} type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0] ?? null)} />
+                      )}
+                      <span className="muted" style={{ fontSize: 12 }}>Instagram needs a public JPG/PNG. A square image works best.</span>
+                    </div>
+
+                    <div className="field">
+                      <label>Publish to</label>
+                      <div style={{ display: "flex", gap: 14, paddingTop: 4 }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 14 }}>
+                          <input type="checkbox" checked={targets.includes("facebook")} onChange={() => toggleTarget("facebook")} />
+                          <span style={{ color: "#1877f2", fontWeight: 600 }}>Facebook</span>
+                        </label>
+                        <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: igLinked ? "pointer" : "not-allowed", fontSize: 14, opacity: igLinked ? 1 : 0.5 }}>
+                          <input type="checkbox" disabled={!igLinked} checked={targets.includes("instagram")} onChange={() => toggleTarget("instagram")} />
+                          <span style={{ color: "#c13584", fontWeight: 600 }}>Instagram</span>
+                          {!igLinked && <span className="muted" style={{ fontSize: 11 }}>(not linked)</span>}
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="field">
+                      <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <input type="checkbox" checked={scheduleOn} onChange={(e) => setScheduleOn(e.target.checked)} />
+                        <span>Schedule for later</span>
+                      </label>
+                      {scheduleOn && (
+                        <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} style={{ marginTop: 8 }} />
+                      )}
+                    </div>
+
+                    <button className="btn" disabled={posting}>
+                      {posting ? "Working…" : scheduleOn ? "Schedule post" : "Publish now"}
+                    </button>
+                  </div>
+
+                  {/* Live preview */}
+                  <div>
+                    <label className="muted" style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 8 }}>Preview</label>
+                    <div style={{ borderRadius: 14, overflow: "hidden", boxShadow: "0 6px 22px rgba(0,0,0,.08)", background: "#fff" }}>
+                      {preview ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={preview} alt="preview" style={{ width: "100%", display: "block", maxHeight: 260, objectFit: "cover" }} />
+                      ) : (
+                        <div style={{ height: 180, background: "linear-gradient(135deg,#128c7e18,#25d36618)", display: "flex", alignItems: "center", justifyContent: "center", color: "#8aa" }}>🖼️ Photo preview</div>
+                      )}
+                      <div style={{ padding: 12, fontSize: 13, color: "#3b4a54", whiteSpace: "pre-wrap" }}>{caption || <span className="muted">Your caption appears here…</span>}</div>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* History */}
+          <div className="panel">
+            <h2 style={{ marginTop: 0 }}>Posts</h2>
+            {posts.length === 0 ? (
+              <p className="muted">No posts yet.</p>
+            ) : (
+              <div style={{ display: "grid", gap: 12 }}>
+                {posts.map((p) => {
+                  const sc = statusColor(p.status);
+                  return (
+                    <div key={p.id} style={{ display: "flex", gap: 12, border: "1px solid var(--border)", borderRadius: 12, padding: 12 }}>
+                      <div style={{ width: 64, height: 64, borderRadius: 10, background: "#f0f2f5", flex: "none", overflow: "hidden" }}>
+                        {p.image_url && /* eslint-disable-next-line @next/next/no-img-element */ (
+                          <img src={p.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        )}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                          <span style={{ background: sc.bg, color: sc.fg, padding: "2px 9px", borderRadius: 999, fontSize: 11, fontWeight: 700, textTransform: "capitalize" }}>{p.status}</span>
+                          {p.targets.map((t) => <span key={t} style={{ fontSize: 11, color: "#54656f" }}>{t === "facebook" ? "f FB" : "◙ IG"}</span>)}
+                          {p.scheduled_at && p.status === "scheduled" && <span className="muted" style={{ fontSize: 12 }}>for {new Date(p.scheduled_at).toLocaleString("en-IN")}</span>}
+                        </div>
+                        <div style={{ fontSize: 13, color: "#3b4a54", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.caption || <span className="muted">No caption</span>}</div>
+                        {p.results && (
+                          <div style={{ fontSize: 12, marginTop: 4 }}>
+                            {Object.entries(p.results).map(([plat, r]) => (
+                              <span key={plat} style={{ marginRight: 12, color: r.status === "published" ? "#0a7d47" : "#c53030" }}>
+                                {plat === "facebook" ? "Facebook" : "Instagram"}: {r.status === "published" ? "✓ posted" : `✗ ${r.error ?? "failed"}`}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {canPost && (p.status === "scheduled" || p.status === "failed" || p.status === "partial") && (
+                        <button className="btn-mini" style={{ alignSelf: "center" }} onClick={() => publishNow(p)}>Publish now</button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Connect modal */}
+      {showConnect && (
+        <div className="msg-info-overlay" onClick={() => setShowConnect(false)}>
+          <div className="msg-info-panel" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <h2 style={{ marginTop: 0 }}>Connect Facebook Page</h2>
+            <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
+              Paste your Facebook <b>Page ID</b> and a <b>Page access token</b> with <code>pages_manage_posts</code> and{" "}
+              <code>instagram_content_publish</code> permissions. We&apos;ll auto-detect the linked Instagram account.
+            </p>
+            <form onSubmit={connect}>
+              <div className="field">
+                <label>Facebook Page ID</label>
+                <input value={connForm.page_id} onChange={(e) => setConnForm((f) => ({ ...f, page_id: e.target.value }))} required placeholder="1234567890" />
+              </div>
+              <div className="field">
+                <label>Page access token</label>
+                <input value={connForm.page_access_token} onChange={(e) => setConnForm((f) => ({ ...f, page_access_token: e.target.value }))} required placeholder="EAAG…" />
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                <button className="btn" disabled={connecting}>{connecting ? "Verifying…" : "Connect"}</button>
+                <button type="button" className="btn-mini" onClick={() => setShowConnect(false)}>Cancel</button>
+              </div>
+            </form>
           </div>
         </div>
-
-        <p className="muted" style={{ fontSize: 12, marginTop: 20 }}>
-          Requires connecting your Facebook Page and Instagram Business account.
-        </p>
-      </div>
+      )}
     </div>
   );
 }

@@ -332,6 +332,64 @@ export const api = {
     remove: (token: string, id: string) =>
       request<{ message: string }>(`/team/${id}`, { method: "DELETE", token }),
   },
+
+  social: {
+    connection: (token: string) =>
+      request<{ connection: SocialConnection | null }>("/social/connection", { token }),
+    connect: (token: string, body: { page_id: string; page_access_token: string }) =>
+      request<{ connection: SocialConnection }>("/social/connect", { method: "POST", body, token }),
+    disconnect: (token: string) =>
+      request<{ message: string }>("/social/connection", { method: "DELETE", token }),
+    posts: (token: string) =>
+      request<{ posts: SocialPost[] }>("/social/posts", { token }),
+    publishPost: (token: string, id: string) =>
+      request<{ post: SocialPost }>(`/social/posts/${id}/publish`, { method: "POST", token }),
+    createPost: async (
+      token: string,
+      body: { caption?: string; image_url?: string; targets: string[]; scheduled_at?: string; image?: File | null }
+    ) => {
+      const form = new FormData();
+      if (body.caption) form.append("caption", body.caption);
+      if (body.image_url) form.append("image_url", body.image_url);
+      if (body.scheduled_at) form.append("scheduled_at", body.scheduled_at);
+      body.targets.forEach((t) => form.append("targets[]", t));
+      if (body.image) form.append("image", body.image);
+      const res = await fetch(`${BASE}/social/posts`, {
+        method: "POST",
+        headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+        body: form,
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || (json && json.success === false)) {
+        const err: ApiError = { message: json?.message ?? `Post failed (${res.status})`, errors: json?.errors, status: res.status };
+        throw err;
+      }
+      return json.data as { post: SocialPost };
+    },
+  },
+};
+
+export type SocialConnection = {
+  id: string;
+  page_id: string;
+  page_name: string | null;
+  ig_user_id: string | null;
+  ig_username: string | null;
+  instagram_linked: boolean;
+  status: string;
+  connected_at: string | null;
+};
+
+export type SocialPost = {
+  id: string;
+  caption: string | null;
+  image_url: string | null;
+  targets: string[];
+  status: string;
+  results: Record<string, { status: string; id?: string; error?: string }> | null;
+  scheduled_at: string | null;
+  published_at: string | null;
+  created_at: string | null;
 };
 
 export type TeamMember = {
