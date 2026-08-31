@@ -60,7 +60,9 @@ a:hover { text-decoration: underline; }
 
 .field { margin-bottom: 14px; }
 .field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
-.field input {
+.field input,
+.field select,
+.field textarea {
   width: 100%;
   padding: 11px 13px;
   border: 1px solid var(--border);
@@ -68,8 +70,26 @@ a:hover { text-decoration: underline; }
   font-size: 14px;
   outline: none;
   transition: border-color .15s;
+  background: #fff;
+  color: var(--text);
+  font-family: inherit;
 }
-.field input:focus { border-color: var(--green); }
+.field input:focus,
+.field select:focus,
+.field textarea:focus { border-color: var(--green); }
+
+/* Native select: custom chevron + consistent height so it matches inputs. */
+.field select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  cursor: pointer;
+  padding-right: 38px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23667781' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 13px center;
+}
+.field select option { color: var(--text); }
 
 .btn {
   width: 100%;

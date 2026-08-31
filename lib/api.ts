@@ -149,7 +149,7 @@ export const api = {
     },
     get: (token: string, id: string) =>
       request<{ bulk_send: BulkSendDetail }>(`/whatsapp/bulk-sends/${id}`, { token }),
-    send: (token: string, body: { numbers: string[]; template: string; language?: string }) =>
+    send: (token: string, body: { numbers: string[]; template: string; language?: string; variables?: string[] }) =>
       request<{ bulk_send: BulkSendDetail }>("/whatsapp/bulk-send", { method: "POST", body, token }),
   },
 

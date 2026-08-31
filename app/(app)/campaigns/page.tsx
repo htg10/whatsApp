@@ -51,6 +51,7 @@ export default function CampaignsPage() {
   const [bulkNumbers, setBulkNumbers] = useState("");
   const [bulkTemplate, setBulkTemplate] = useState("pg_owenr_welcome");
   const [bulkLang, setBulkLang] = useState("en");
+  const [bulkVars, setBulkVars] = useState<string[]>([]);
   const [bulkDetail, setBulkDetail] = useState<BulkSendDetail | null>(null);
 
   const loadCampaigns = useCallback(async () => {
@@ -112,17 +113,33 @@ export default function CampaignsPage() {
       setTemplates(t.templates);
       // Default the picker to the first approved template if the current one isn't in the list.
       if (t.templates.length > 0 && !t.templates.some((x) => x.name === bulkTemplate)) {
-        setBulkTemplate(t.templates[0].name);
-        setBulkLang(t.templates[0].language || "en");
+        const first = t.templates[0];
+        setBulkTemplate(first.name);
+        setBulkLang(first.language || "en");
+        const body = first.components?.find((c) => (c.type || "").toUpperCase() === "BODY");
+        const matches = body?.text?.match(/\{\{\s*(\d+)\s*\}\}/g);
+        const count = matches ? Math.max(...matches.map((m) => parseInt(m.replace(/\D/g, ""), 10))) : 0;
+        setBulkVars(Array(count).fill(""));
       }
     } catch {}
   }
 
-  // When a template is picked, set both its name and its language.
+  // Number of BODY variables ({{1}}, {{2}}, …) a template expects.
+  function templateVarCount(name: string): number {
+    const tpl = templates.find((t) => t.name === name);
+    const body = tpl?.components?.find((c) => (c.type || "").toUpperCase() === "BODY");
+    if (!body?.text) return 0;
+    const matches = body.text.match(/\{\{\s*(\d+)\s*\}\}/g);
+    if (!matches) return 0;
+    return Math.max(...matches.map((m) => parseInt(m.replace(/\D/g, ""), 10)));
+  }
+
+  // When a template is picked, set its name, language, and reset variable slots.
   function pickBulkTemplate(name: string) {
     setBulkTemplate(name);
     const tpl = templates.find((t) => t.name === name);
     if (tpl?.language) setBulkLang(tpl.language);
+    setBulkVars(Array(templateVarCount(name)).fill(""));
   }
 
   async function createCampaign(e: React.FormEvent) {
@@ -200,10 +217,19 @@ export default function CampaignsPage() {
     if (!token) return;
     const nums = parseNumbers(bulkNumbers);
     if (!nums.length) { setError("No valid numbers found."); return; }
+    if (bulkVars.some((v) => v.trim() === "")) {
+      setError("Please fill in all template variables before sending.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
-      await api.bulk.send(token, { numbers: nums, template: bulkTemplate, language: bulkLang });
+      await api.bulk.send(token, {
+        numbers: nums,
+        template: bulkTemplate,
+        language: bulkLang,
+        ...(bulkVars.length > 0 ? { variables: bulkVars } : {}),
+      });
       setNotice(`Bulk send started to ${nums.length} numbers.`);
       setShowBulk(false);
       setBulkNumbers("");
@@ -458,6 +484,27 @@ export default function CampaignsPage() {
                 <span className="muted" style={{ fontSize: 12, marginTop: 4, display: "block" }}>Auto-set from template; change if needed.</span>
               </div>
             </div>
+            {bulkVars.length > 0 && (
+              <div className="field">
+                <label>Template variables</label>
+                <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
+                  This template has {bulkVars.length} variable{bulkVars.length === 1 ? "" : "s"}. The same values are sent to every number.
+                </div>
+                <div style={{ display: "grid", gap: 8 }}>
+                  {bulkVars.map((v, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontFamily: "monospace", fontSize: 13, color: "#54656f", minWidth: 42 }}>{`{{${i + 1}}}`}</span>
+                      <input
+                        value={v}
+                        onChange={(e) => setBulkVars((prev) => prev.map((x, j) => (j === i ? e.target.value : x)))}
+                        placeholder={`Value for {{${i + 1}}}`}
+                        style={{ flex: 1, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, fontSize: 14 }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="field">
               <label>Phone numbers (one per line, or comma-separated)</label>
               <textarea
