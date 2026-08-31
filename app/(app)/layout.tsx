@@ -5,9 +5,19 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { api, ApiError, User } from "@/lib/api";
 import { getToken, clearToken } from "@/lib/auth";
-import { NAV } from "@/lib/nav";
+import { navFor } from "@/lib/nav";
 import { UserContext } from "@/lib/user-context";
 import { Preloader } from "@/components/Preloader";
+
+const ROLE_LABELS: Record<string, string> = {
+  "tenant-owner": "Owner",
+  "manager": "Manager",
+  "agent": "Agent",
+  "super-admin": "Admin",
+};
+function roleLabel(role: string): string {
+  return ROLE_LABELS[role] ?? role;
+}
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -51,7 +61,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <img src="/logo.png" alt="PiziDesk" style={{ width: "100%", maxWidth: 180, height: "auto", borderRadius: 8 }} />
           </div>
           <nav>
-            {NAV.map((item) => {
+            {navFor(user.permissions).map((item) => {
               const active = pathname === item.href || pathname.startsWith(item.href + "/");
               return (
                 <Link key={item.href} href={item.href} className={active ? "active" : ""}>
@@ -62,7 +72,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             })}
           </nav>
           <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,.15)" }}>
-            <div style={{ fontSize: 13, color: "#cfe0dc" }}>{user.name}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ fontSize: 13, color: "#cfe0dc" }}>{user.name}</div>
+              {user.roles?.[0] && (
+                <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".4px", background: "rgba(255,255,255,.18)", color: "#fff", padding: "1px 7px", borderRadius: 999 }}>
+                  {roleLabel(user.roles[0])}
+                </span>
+              )}
+            </div>
             <div style={{ fontSize: 12, color: "#9fc0b8", marginBottom: 10 }}>{user.email}</div>
             <button className="btn-ghost" onClick={logout}>Log out</button>
             <div style={{ marginTop: 16, fontSize: 11, color: "#7fa89f", lineHeight: 1.5 }}>

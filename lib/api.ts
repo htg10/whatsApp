@@ -319,7 +319,33 @@ export const api = {
     subscribe: (token: string, planId: string) =>
       request<{ subscription: SubscriptionItem2 }>("/billing/subscribe", { method: "POST", body: { plan_id: planId }, token }),
   },
+
+  team: {
+    list: (token: string) =>
+      request<{ members: TeamMember[]; roles: RoleOption[] }>("/team", { token }),
+    create: (token: string, body: { name: string; email: string; password: string; role: string }) =>
+      request<{ member: TeamMember }>("/team", { method: "POST", body, token }),
+    update: (token: string, id: string, body: { name?: string; role?: string }) =>
+      request<{ member: TeamMember }>(`/team/${id}`, { method: "PUT", body, token }),
+    toggle: (token: string, id: string) =>
+      request<{ member: TeamMember }>(`/team/${id}/toggle`, { method: "POST", token }),
+    remove: (token: string, id: string) =>
+      request<{ message: string }>(`/team/${id}`, { method: "DELETE", token }),
+  },
 };
+
+export type TeamMember = {
+  id: string;
+  name: string;
+  email: string;
+  status: string;
+  role: string | null;
+  roles: string[];
+  last_login_at: string | null;
+  created_at: string | null;
+};
+
+export type RoleOption = { value: string; label: string };
 
 export type WaNumber = {
   id: string;

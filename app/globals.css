@@ -171,6 +171,51 @@ a:hover { text-decoration: underline; }
 .btn-mini.danger:hover { background: #fadede; }
 .center-screen { min-height: 100vh; display: grid; place-items: center; color: var(--muted); }
 
+/* ---- Dashboard hero + stat cards ---- */
+.hero {
+  background: linear-gradient(135deg, var(--green-dark), var(--green) 60%, var(--green-light));
+  color: #fff;
+  border-radius: 18px;
+  padding: 26px 28px;
+  margin-bottom: 20px;
+  box-shadow: 0 10px 30px rgba(7, 94, 84, .18);
+}
+.hero h1 { margin: 0 0 4px; font-size: 24px; }
+.hero .hero-sub { color: rgba(255,255,255,.85); font-size: 14px; }
+.hero-badge {
+  display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .5px; background: rgba(255,255,255,.2); padding: 3px 10px; border-radius: 999px;
+  margin-left: 8px; vertical-align: middle;
+}
+
+.stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  transition: transform .12s, box-shadow .12s;
+}
+.stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(0,0,0,.07); }
+.stat-card .ic {
+  width: 44px; height: 44px; border-radius: 12px; flex: none;
+  display: flex; align-items: center; justify-content: center; font-size: 20px;
+}
+.stat-card .sc-label { font-size: 12px; color: var(--muted); font-weight: 600; }
+.stat-card .sc-value { font-size: 24px; font-weight: 800; line-height: 1.1; }
+
+.quick-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+.quick-action {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 16px; font-size: 14px; font-weight: 600; color: var(--text); cursor: pointer;
+  text-decoration: none; transition: border-color .12s, background .12s;
+}
+.quick-action:hover { border-color: var(--green); background: #f5fbf9; text-decoration: none; }
+
 /* ---- Preloader / spinners ---- */
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes preloaderFade { from { opacity: 0; } to { opacity: 1; } }
