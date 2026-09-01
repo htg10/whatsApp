@@ -154,10 +154,19 @@ export default function SocialPage() {
   }
 
   const igLinked = connection?.instagram_linked;
-  const preview = imageMode === "upload" && imageFile ? URL.createObjectURL(imageFile) : imageUrl;
+  const [previewUrl, setPreviewUrl] = useState("");
 
-  // Re-detect dimensions whenever the chosen image changes.
-  useEffect(() => { setImgDims(null); }, [preview]);
+  // Build the preview URL ONCE when the image changes (never in render, or the
+  // object URL churns every render and the preview flickers). Revoke on cleanup.
+  useEffect(() => {
+    setImgDims(null);
+    if (imageMode === "upload" && imageFile) {
+      const url = URL.createObjectURL(imageFile);
+      setPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setPreviewUrl(imageMode === "url" ? imageUrl : "");
+  }, [imageMode, imageFile, imageUrl]);
 
   const statusColor = (s: string) => s === "published" ? { bg: "#e7f7ef", fg: "#0a7d47" }
     : s === "scheduled" ? { bg: "#fff3cd", fg: "#856404" }
@@ -285,10 +294,10 @@ export default function SocialPage() {
                         background: "#0b141a",
                         display: "flex", alignItems: "center", justifyContent: "center",
                       }}>
-                        {preview ? (
+                        {previewUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
-                            src={preview}
+                            src={previewUrl}
                             alt="preview"
                             onLoad={(e) => setImgDims({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
                             onError={() => setImgDims(null)}
