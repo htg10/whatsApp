@@ -1,8 +1,8 @@
 name: Deploy frontend to Hostinger
 
 # Every push to main: build the static export and upload it to Hostinger over
-# FTP. dangerous-clean-slate wipes the target folder first, so old build chunks
-# can never linger and cause ChunkLoadError, and .htaccess is always restored.
+# FTP (upload-only — old build chunks are kept so CDN/browser-cached HTML never
+# 404s a chunk and throws ChunkLoadError).
 on:
   push:
     branches: [main]
@@ -39,15 +39,26 @@ jobs:
           if [ "$miss" -ne 0 ]; then echo "Build has $miss missing assets — aborting deploy."; exit 1; fi
           echo "Build OK — all referenced assets present."
 
-      - name: Deploy to Hostinger via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          local-dir: ./out/
-          server-dir: ${{ secrets.FTP_SERVER_DIR }}
-          # The action tracks a sync-state file on the server, so from the second
-          # deploy on it automatically DELETES chunks removed by a new build —
-          # keeping the server clean without the risk of wiping the whole folder.
+      - name: Deploy to Hostinger via FTP (upload-only, never delete)
+        # We intentionally do NOT delete old files. Hostinger's CDN caches HTML
+        # for a long time; if a deploy deleted the previous build's chunks, that
+        # cached HTML would 404 them (ChunkLoadError). Keeping old chunks means
+        # any cached HTML — CDN or browser — always finds the chunks it asks for.
+        # Orphan chunks are tiny and harmless.
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_SERVER_DIR: ${{ secrets.FTP_SERVER_DIR }}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y lftp
+          lftp -u "$FTP_USERNAME","$FTP_PASSWORD" "$FTP_SERVER" <<EOF
+          set ftp:ssl-allow true
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate no
+          set net:max-retries 3
+          set net:timeout 25
+          mirror -R --only-newer --parallel=4 --verbose ./out/ "$FTP_SERVER_DIR"
+          bye
+          EOF
