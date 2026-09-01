@@ -52,6 +52,17 @@ export default function SocialPage() {
   }
   const ai = aspectInfo(imgDims);
 
+  // Surface field-level validation messages (e.g. "page_id must be ≤64 chars")
+  // instead of the generic "The given data was invalid."
+  function errMsg(err: unknown): string {
+    const e = err as ApiError;
+    if (e?.errors) {
+      const flat = Object.values(e.errors).flat();
+      if (flat.length) return flat.join(" ");
+    }
+    return e?.message ?? "Something went wrong.";
+  }
+
   const load = useCallback(async () => {
     const token = getToken();
     if (!token) return;
@@ -64,7 +75,7 @@ export default function SocialPage() {
       setConnection(c.connection);
       setPosts(p.posts);
     } catch (err) {
-      setError((err as ApiError).message);
+      setError(errMsg(err));
     } finally {
       setLoading(false);
     }
@@ -89,7 +100,7 @@ export default function SocialPage() {
       setShowConnect(false);
       flash(`Connected to ${res.connection.page_name ?? "your Page"}.`);
     } catch (err) {
-      setError((err as ApiError).message);
+      setError(errMsg(err));
     } finally {
       setConnecting(false);
     }
@@ -104,7 +115,7 @@ export default function SocialPage() {
       setConnection(null);
       flash("Disconnected.");
     } catch (err) {
-      setError((err as ApiError).message);
+      setError(errMsg(err));
     }
   }
 
@@ -135,7 +146,7 @@ export default function SocialPage() {
       setScheduleOn(false); setScheduledAt("");
       await load();
     } catch (err) {
-      setError((err as ApiError).message);
+      setError(errMsg(err));
     } finally {
       setPosting(false);
     }
@@ -149,7 +160,7 @@ export default function SocialPage() {
       setPosts((prev) => prev.map((x) => (x.id === p.id ? res.post : x)));
       flash(res.post.status === "published" ? "Published! 🎉" : "Attempted — see status.");
     } catch (err) {
-      setError((err as ApiError).message);
+      setError(errMsg(err));
     }
   }
 
