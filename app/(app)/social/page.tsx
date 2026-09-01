@@ -168,6 +168,11 @@ export default function SocialPage() {
     setPreviewUrl(imageMode === "url" ? imageUrl : "");
   }, [imageMode, imageFile, imageUrl]);
 
+  // Is the selected media a video (Reel) rather than a photo?
+  const isVideo = imageMode === "upload"
+    ? !!imageFile && imageFile.type.startsWith("video")
+    : /\.(mp4|mov|m4v|webm)(\?.*)?$/i.test(imageUrl);
+
   const statusColor = (s: string) => s === "published" ? { bg: "#e7f7ef", fg: "#0a7d47" }
     : s === "scheduled" ? { bg: "#fff3cd", fg: "#856404" }
     : s === "partial" ? { bg: "#fff3e0", fg: "#b45309" }
@@ -232,17 +237,19 @@ export default function SocialPage() {
                     </div>
 
                     <div className="field">
-                      <label>Photo</label>
+                      <label>Photo or video (Reel)</label>
                       <div className="filter-tabs" style={{ marginBottom: 10 }}>
                         <button type="button" className={imageMode === "url" ? "active" : ""} onClick={() => setImageMode("url")}>Paste URL</button>
                         <button type="button" className={imageMode === "upload" ? "active" : ""} onClick={() => setImageMode("upload")}>Upload</button>
                       </div>
                       {imageMode === "url" ? (
-                        <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://example.com/photo.jpg" />
+                        <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://example.com/photo.jpg or video.mp4" />
                       ) : (
-                        <input ref={fileRef} type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0] ?? null)} />
+                        <input ref={fileRef} type="file" accept="image/*,video/mp4,video/quicktime" onChange={(e) => setImageFile(e.target.files?.[0] ?? null)} />
                       )}
-                      <span className="muted" style={{ fontSize: 12 }}>Instagram needs a public JPG/PNG. A square image works best.</span>
+                      <span className="muted" style={{ fontSize: 12 }}>
+                        Photo (JPG/PNG) or video (MP4/MOV). A video posts as a <b>Reel</b> on Instagram. Media must be a public URL for Meta to fetch it.
+                      </span>
                     </div>
 
                     <div className="field">
@@ -279,9 +286,9 @@ export default function SocialPage() {
                   <div style={{ position: "sticky", top: 12 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                       <label className="muted" style={{ fontSize: 13, fontWeight: 600, margin: 0 }}>Preview</label>
-                      {ai && (
-                        <span style={{ fontSize: 11, fontWeight: 700, background: ai.hint === "Reel / Story" ? "#f3e8ff" : "#e7f7ef", color: ai.hint === "Reel / Story" ? "#7c3aed" : "#0a7d47", padding: "2px 9px", borderRadius: 999 }}>
-                          {ai.hint} · {ai.label}
+                      {(ai || isVideo) && (
+                        <span style={{ fontSize: 11, fontWeight: 700, background: isVideo ? "#f3e8ff" : "#e7f7ef", color: isVideo ? "#7c3aed" : "#0a7d47", padding: "2px 9px", borderRadius: 999 }}>
+                          {isVideo ? "🎬 Reel / Video" : `${ai!.hint} · ${ai!.label}`}
                         </span>
                       )}
                     </div>
@@ -294,7 +301,16 @@ export default function SocialPage() {
                         background: "#0b141a",
                         display: "flex", alignItems: "center", justifyContent: "center",
                       }}>
-                        {previewUrl ? (
+                        {previewUrl && isVideo ? (
+                          <video
+                            src={previewUrl}
+                            controls
+                            playsInline
+                            onLoadedMetadata={(e) => setImgDims({ w: e.currentTarget.videoWidth, h: e.currentTarget.videoHeight })}
+                            onError={() => setImgDims(null)}
+                            style={{ width: "100%", height: "100%", objectFit: "contain", display: "block", background: "#000" }}
+                          />
+                        ) : previewUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={previewUrl}
@@ -304,7 +320,7 @@ export default function SocialPage() {
                             style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
                           />
                         ) : (
-                          <span style={{ color: "#5b6b73", fontSize: 13 }}>🖼️ Photo preview</span>
+                          <span style={{ color: "#5b6b73", fontSize: 13 }}>🖼️ Photo / video preview</span>
                         )}
                       </div>
                       <div style={{ padding: 12, fontSize: 13, color: "#3b4a54", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{caption || <span className="muted">Your caption appears here…</span>}</div>
@@ -332,10 +348,13 @@ export default function SocialPage() {
                   const sc = statusColor(p.status);
                   return (
                     <div key={p.id} style={{ display: "flex", gap: 12, border: "1px solid var(--border)", borderRadius: 12, padding: 12 }}>
-                      <div style={{ width: 64, height: 64, borderRadius: 10, background: "#f0f2f5", flex: "none", overflow: "hidden" }}>
-                        {p.image_url && /* eslint-disable-next-line @next/next/no-img-element */ (
+                      <div style={{ width: 64, height: 64, borderRadius: 10, background: "#0b141a", flex: "none", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 22 }}>
+                        {p.media_type === "video" ? (
+                          "🎬"
+                        ) : p.image_url ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
                           <img src={p.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                        )}
+                        ) : null}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>

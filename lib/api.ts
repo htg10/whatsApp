@@ -395,6 +395,7 @@ export type SocialPost = {
   id: string;
   caption: string | null;
   image_url: string | null;
+  media_type?: string; // "image" | "video"
   targets: string[];
   status: string;
   results: Record<string, { status: string; id?: string; error?: string }> | null;
