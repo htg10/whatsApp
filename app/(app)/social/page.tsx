@@ -34,6 +34,23 @@ export default function SocialPage() {
   const [scheduledAt, setScheduledAt] = useState("");
   const [posting, setPosting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [imgDims, setImgDims] = useState<{ w: number; h: number } | null>(null);
+
+  // Classify the image so we can show whether it's a feed post or a reel/story.
+  function aspectInfo(d: { w: number; h: number } | null) {
+    if (!d || !d.h) return null;
+    const r = d.w / d.h;
+    let label: string, hint: string;
+    if (r >= 0.95 && r <= 1.05) { label = "Square 1:1"; hint = "Feed post"; }
+    else if (r < 0.95) {
+      if (r <= 0.62) { label = "Portrait 9:16"; hint = "Reel / Story"; }
+      else { label = "Portrait 4:5"; hint = "Feed post"; }
+    } else {
+      label = "Landscape 1.91:1"; hint = "Feed post";
+    }
+    return { label, hint, ratio: r };
+  }
+  const ai = aspectInfo(imgDims);
 
   const load = useCallback(async () => {
     const token = getToken();
@@ -138,6 +155,9 @@ export default function SocialPage() {
 
   const igLinked = connection?.instagram_linked;
   const preview = imageMode === "upload" && imageFile ? URL.createObjectURL(imageFile) : imageUrl;
+
+  // Re-detect dimensions whenever the chosen image changes.
+  useEffect(() => { setImgDims(null); }, [preview]);
 
   const statusColor = (s: string) => s === "published" ? { bg: "#e7f7ef", fg: "#0a7d47" }
     : s === "scheduled" ? { bg: "#fff3cd", fg: "#856404" }
@@ -247,17 +267,45 @@ export default function SocialPage() {
                   </div>
 
                   {/* Live preview */}
-                  <div>
-                    <label className="muted" style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 8 }}>Preview</label>
-                    <div style={{ borderRadius: 14, overflow: "hidden", boxShadow: "0 6px 22px rgba(0,0,0,.08)", background: "#fff" }}>
-                      {preview ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={preview} alt="preview" style={{ width: "100%", display: "block", maxHeight: 260, objectFit: "cover" }} />
-                      ) : (
-                        <div style={{ height: 180, background: "linear-gradient(135deg,#128c7e18,#25d36618)", display: "flex", alignItems: "center", justifyContent: "center", color: "#8aa" }}>🖼️ Photo preview</div>
+                  <div style={{ position: "sticky", top: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                      <label className="muted" style={{ fontSize: 13, fontWeight: 600, margin: 0 }}>Preview</label>
+                      {ai && (
+                        <span style={{ fontSize: 11, fontWeight: 700, background: ai.hint === "Reel / Story" ? "#f3e8ff" : "#e7f7ef", color: ai.hint === "Reel / Story" ? "#7c3aed" : "#0a7d47", padding: "2px 9px", borderRadius: 999 }}>
+                          {ai.hint} · {ai.label}
+                        </span>
                       )}
-                      <div style={{ padding: 12, fontSize: 13, color: "#3b4a54", whiteSpace: "pre-wrap" }}>{caption || <span className="muted">Your caption appears here…</span>}</div>
                     </div>
+                    <div style={{ maxWidth: 320, margin: "0 auto", borderRadius: 14, overflow: "hidden", boxShadow: "0 6px 22px rgba(0,0,0,.08)", background: "#fff", border: "1px solid var(--border)" }}>
+                      {/* Media frame — matches the image's own shape so the whole photo shows, uncropped. */}
+                      <div style={{
+                        width: "100%",
+                        aspectRatio: imgDims ? `${imgDims.w} / ${imgDims.h}` : "1 / 1",
+                        maxHeight: 420,
+                        background: "#0b141a",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        {preview ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={preview}
+                            alt="preview"
+                            onLoad={(e) => setImgDims({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+                            onError={() => setImgDims(null)}
+                            style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+                          />
+                        ) : (
+                          <span style={{ color: "#5b6b73", fontSize: 13 }}>🖼️ Photo preview</span>
+                        )}
+                      </div>
+                      <div style={{ padding: 12, fontSize: 13, color: "#3b4a54", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{caption || <span className="muted">Your caption appears here…</span>}</div>
+                    </div>
+                    {imgDims && (
+                      <div className="muted" style={{ fontSize: 12, textAlign: "center", marginTop: 8 }}>
+                        {imgDims.w}×{imgDims.h}px
+                        {ai && ai.hint === "Reel / Story" && " · tall image — best as a Reel/Story"}
+                      </div>
+                    )}
                   </div>
                 </div>
               </form>
