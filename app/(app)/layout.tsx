@@ -10,12 +10,11 @@ import { UserContext } from "@/lib/user-context";
 import { Preloader } from "@/components/Preloader";
 
 const ROLE_LABELS: Record<string, string> = {
+  "super-admin": "Super Admin",
   "tenant-owner": "Admin",
-  "user": "User",
-  "super-admin": "Admin",
-  // legacy roles, still labelled sensibly if present
-  "manager": "Manager",
-  "agent": "User",
+  "agent": "Agent",
+  "manager": "Admin",
+  "user": "Agent",
 };
 function roleLabel(role: string): string {
   return ROLE_LABELS[role] ?? role;
@@ -63,7 +62,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <img src="/logo.png" alt="PiziDesk" style={{ width: "100%", maxWidth: 180, height: "auto", borderRadius: 8 }} />
           </div>
           <nav>
-            {navFor(user.permissions).map((item) => {
+            {navFor(user).map((item) => {
               const active = pathname === item.href || pathname.startsWith(item.href + "/");
               return (
                 <Link key={item.href} href={item.href} className={active ? "active" : ""}>

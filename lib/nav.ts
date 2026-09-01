@@ -4,12 +4,9 @@ export type NavItem = {
   icon: string;
   /** Permission required to see this item. Omit = everyone (any signed-in user). */
   perm?: string;
-  /** Optional visual group heading shown above the item. */
-  group?: string;
 };
 
-// The full navigation. Items are filtered by the signed-in user's permissions
-// in the app layout, so an agent sees only what their role allows.
+// Company/agent navigation. Filtered by the signed-in user's permissions.
 export const NAV: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: "▤" },
   { label: "Inbox", href: "/inbox", icon: "✉", perm: "conversations.view" },
@@ -26,8 +23,17 @@ export const NAV: NavItem[] = [
   { label: "Billing", href: "/billing", icon: "₹", perm: "billing.view" },
 ];
 
-/** Filter the nav for a user given their granted permissions. */
-export function navFor(permissions: string[] | undefined): NavItem[] {
-  const perms = new Set(permissions ?? []);
+// Platform super-admin navigation.
+export const SUPER_ADMIN_NAV: NavItem[] = [
+  { label: "Dashboard", href: "/dashboard", icon: "▤" },
+  { label: "Companies", href: "/companies", icon: "🏢" },
+];
+
+type NavUser = { is_super_admin?: boolean; permissions?: string[] };
+
+/** The nav appropriate for this user. Super admins get the platform nav. */
+export function navFor(user: NavUser): NavItem[] {
+  if (user.is_super_admin) return SUPER_ADMIN_NAV;
+  const perms = new Set(user.permissions ?? []);
   return NAV.filter((item) => !item.perm || perms.has(item.perm));
 }

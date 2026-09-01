@@ -322,15 +322,26 @@ export const api = {
 
   team: {
     list: (token: string) =>
-      request<{ members: TeamMember[]; roles: RoleOption[] }>("/team", { token }),
-    create: (token: string, body: { name: string; email: string; password: string; role: string }) =>
+      request<{ members: TeamMember[]; roles: RoleOption[]; features: FeatureOption[] }>("/team", { token }),
+    create: (token: string, body: { name: string; email: string; password: string; role: string; features: string[] }) =>
       request<{ member: TeamMember }>("/team", { method: "POST", body, token }),
-    update: (token: string, id: string, body: { name?: string; role?: string }) =>
+    update: (token: string, id: string, body: { name?: string; role?: string; features?: string[] }) =>
       request<{ member: TeamMember }>(`/team/${id}`, { method: "PUT", body, token }),
     toggle: (token: string, id: string) =>
       request<{ member: TeamMember }>(`/team/${id}/toggle`, { method: "POST", token }),
     remove: (token: string, id: string) =>
       request<{ message: string }>(`/team/${id}`, { method: "DELETE", token }),
+  },
+
+  admin: {
+    companies: (token: string) =>
+      request<{ companies: Company[] }>("/admin/companies", { token }),
+    createCompany: (token: string, body: { company_name: string; owner_name: string; owner_email: string; password: string; phone?: string }) =>
+      request<{ company: Company }>("/admin/companies", { method: "POST", body, token }),
+    toggleCompany: (token: string, id: string) =>
+      request<{ message: string; status: string }>(`/admin/companies/${id}/toggle`, { method: "POST", token }),
+    removeCompany: (token: string, id: string) =>
+      request<{ message: string }>(`/admin/companies/${id}`, { method: "DELETE", token }),
   },
 
   social: {
@@ -397,13 +408,26 @@ export type TeamMember = {
   name: string;
   email: string;
   status: string;
-  role: string;            // "admin" | "user"
-  role_label: string;      // "Admin" | "User"
+  role: string;            // "admin" | "agent"
+  role_label: string;      // "Admin" | "Agent"
+  features: string[];      // feature keys an agent can access
   last_login_at: string | null;
   created_at: string | null;
 };
 
 export type RoleOption = { value: string; label: string };
+export type FeatureOption = { key: string; label: string };
+
+export type Company = {
+  id: string;
+  name: string;
+  status: string;
+  users_count: number;
+  owner_name: string | null;
+  owner_email: string | null;
+  trial_ends_at: string | null;
+  created_at: string | null;
+};
 
 export type WaNumber = {
   id: string;

@@ -7,7 +7,7 @@ import { api, DashboardStats } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 
 const ROLE_LABELS: Record<string, string> = {
-  "tenant-owner": "Admin", "user": "User", "super-admin": "Admin", "manager": "Manager", "agent": "User",
+  "super-admin": "Super Admin", "tenant-owner": "Admin", "agent": "Agent", "manager": "Admin", "user": "Agent",
 };
 
 function StatCard({ icon, bg, label, value, color }: { icon: string; bg: string; label: string; value: React.ReactNode; color?: string }) {
@@ -58,12 +58,19 @@ export default function DashboardPage() {
       </div>
 
       {user.is_super_admin && (
-        <div className="panel" style={{ background: "#fff8e6", borderColor: "#f5e2a3" }}>
-          You are signed in as the platform <b>Super Admin</b>. Register a company account to try tenant features.
-        </div>
+        <>
+          <div className="quick-actions">
+            <Link href="/companies" className="quick-action">🏢 Manage Companies</Link>
+          </div>
+          <div className="panel" style={{ background: "#fff8e6", borderColor: "#f5e2a3" }}>
+            You are the platform <b>Super Admin</b>. Use <b>Companies</b> to create and manage every workspace on PiziDesk.
+            Each company gets an owner (Admin) who can then add their own agents.
+          </div>
+        </>
       )}
 
       {/* Quick actions (admins get more) */}
+      {!user.is_super_admin && (<>
       <div className="quick-actions">
         {can("conversations.view") && <Link href="/inbox" className="quick-action">✉ Open Inbox</Link>}
         {can("campaigns.view") && <Link href="/campaigns" className="quick-action">📣 New Campaign</Link>}
@@ -118,6 +125,7 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+      </>)}
 
       {/* Account */}
       <div className="panel">
