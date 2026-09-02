@@ -164,6 +164,33 @@ export default function SocialPage() {
     }
   }
 
+  async function editPost(p: SocialPost) {
+    const token = getToken();
+    if (!token) return;
+    const next = window.prompt("Edit caption", p.caption ?? "");
+    if (next === null) return; // cancelled
+    try {
+      const res = await api.social.updatePost(token, p.id, { caption: next });
+      setPosts((prev) => prev.map((x) => (x.id === p.id ? res.post : x)));
+      flash(res.note || "Caption updated.");
+    } catch (err) {
+      setError(errMsg(err));
+    }
+  }
+
+  async function deletePost(p: SocialPost) {
+    const token = getToken();
+    if (!token) return;
+    if (!confirm("Delete this post? It will be removed from PiziDesk (and Facebook if published there).")) return;
+    try {
+      const res = await api.social.deletePost(token, p.id);
+      setPosts((prev) => prev.filter((x) => x.id !== p.id));
+      flash(res.note || "Post deleted.");
+    } catch (err) {
+      setError(errMsg(err));
+    }
+  }
+
   const igLinked = connection?.instagram_linked;
   const [previewUrl, setPreviewUrl] = useState("");
 
@@ -384,8 +411,14 @@ export default function SocialPage() {
                           </div>
                         )}
                       </div>
-                      {canPost && (p.status === "scheduled" || p.status === "failed" || p.status === "partial") && (
-                        <button className="btn-mini" style={{ alignSelf: "center" }} onClick={() => publishNow(p)}>Publish now</button>
+                      {canPost && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, alignSelf: "center" }}>
+                          {(p.status === "scheduled" || p.status === "failed" || p.status === "partial") && (
+                            <button className="btn-mini" onClick={() => publishNow(p)}>Publish now</button>
+                          )}
+                          <button className="btn-mini" onClick={() => editPost(p)}>Edit</button>
+                          <button className="btn-mini" style={{ color: "#c53030" }} onClick={() => deletePost(p)}>Delete</button>
+                        </div>
                       )}
                     </div>
                   );

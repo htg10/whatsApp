@@ -355,6 +355,10 @@ export const api = {
       request<{ posts: SocialPost[] }>("/social/posts", { token }),
     publishPost: (token: string, id: string) =>
       request<{ post: SocialPost }>(`/social/posts/${id}/publish`, { method: "POST", token }),
+    updatePost: (token: string, id: string, body: { caption: string | null }) =>
+      request<{ post: SocialPost; note?: string | null }>(`/social/posts/${id}`, { method: "PUT", body, token }),
+    deletePost: (token: string, id: string) =>
+      request<{ message: string; note?: string | null }>(`/social/posts/${id}`, { method: "DELETE", token }),
     createPost: async (
       token: string,
       body: { caption?: string; image_url?: string; targets: string[]; scheduled_at?: string; image?: File | null }
