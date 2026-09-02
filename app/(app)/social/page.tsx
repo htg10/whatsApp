@@ -281,9 +281,9 @@ export default function SocialPage() {
                         <button type="button" className={imageMode === "upload" ? "active" : ""} onClick={() => setImageMode("upload")}>Upload</button>
                       </div>
                       {imageMode === "url" ? (
-                        <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://example.com/photo.jpg or video.mp4" />
+                        <input key="url-input" value={imageUrl ?? ""} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://example.com/photo.jpg or video.mp4" />
                       ) : (
-                        <input ref={fileRef} type="file" accept="image/*,video/mp4,video/quicktime" onChange={(e) => setImageFile(e.target.files?.[0] ?? null)} />
+                        <input key="file-input" ref={fileRef} type="file" accept="image/*,video/mp4,video/quicktime" onChange={(e) => setImageFile(e.target.files?.[0] ?? null)} />
                       )}
                       <span className="muted" style={{ fontSize: 12 }}>
                         Photo (JPG/PNG) or video (MP4/MOV). A video posts as a <b>Reel</b> on Instagram. Media must be a public URL for Meta to fetch it.
