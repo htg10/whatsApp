@@ -181,7 +181,11 @@ export default function SocialPage() {
   async function deletePost(p: SocialPost) {
     const token = getToken();
     if (!token) return;
-    if (!confirm("Delete this post? It will be removed from PiziDesk (and Facebook if published there).")) return;
+    const igDone = (p.results?.instagram?.status) === "published";
+    const msg = igDone
+      ? "Delete this post?\n\n• Removed from PiziDesk\n• Deleted from Facebook (if it was posted there)\n• Instagram: cannot be deleted via API — you'll need to remove it in the Instagram app yourself."
+      : "Delete this post? It will be removed from PiziDesk (and from Facebook if it was published there).";
+    if (!confirm(msg)) return;
     try {
       const res = await api.social.deletePost(token, p.id);
       setPosts((prev) => prev.filter((x) => x.id !== p.id));
@@ -286,7 +290,10 @@ export default function SocialPage() {
                         <input key="file-input" ref={fileRef} type="file" accept="image/*,video/mp4,video/quicktime" onChange={(e) => setImageFile(e.target.files?.[0] ?? null)} />
                       )}
                       <span className="muted" style={{ fontSize: 12 }}>
-                        Photo (JPG/PNG) or video (MP4/MOV). A video posts as a <b>Reel</b> on Instagram. Media must be a public URL for Meta to fetch it.
+                        Photo (JPG/PNG) or video (MP4/MOV). A video posts as a <b>Reel</b> on Instagram.
+                        {imageMode === "upload"
+                          ? " ⚠️ Upload only works on the live site — Instagram can't fetch files from localhost. On localhost use Paste URL with a public link."
+                          : " Use a direct public link that opens as just the image/video (not a web page)."}
                       </span>
                     </div>
 
@@ -315,8 +322,19 @@ export default function SocialPage() {
                       )}
                     </div>
 
+                    {previewUrl && (
+                      <div style={{
+                        padding: "10px 12px", borderRadius: 10, marginBottom: 12, fontSize: 13, fontWeight: 600,
+                        background: isVideo ? "#f3e8ff" : "#e7f7ef", color: isVideo ? "#7c3aed" : "#0a7d47",
+                      }}>
+                        {isVideo
+                          ? "🎬 This will be published as a REEL on Instagram (and a video on Facebook)."
+                          : "📸 This will be published as a FEED POST — a photo."}
+                      </div>
+                    )}
+
                     <button className="btn" disabled={posting}>
-                      {posting ? "Working…" : scheduleOn ? "Schedule post" : "Publish now"}
+                      {posting ? "Working…" : scheduleOn ? "Schedule post" : isVideo ? "Publish Reel now" : "Publish now"}
                     </button>
                   </div>
 
