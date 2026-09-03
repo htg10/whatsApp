@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  api, ApiError, ChatbotItem, ChatbotDetail, ChatbotRuleItem, WaNumber,
+  api, ApiError, ChatbotItem, ChatbotDetail, ChatbotRuleItem, WaNumber, TemplateItem,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
@@ -30,6 +30,7 @@ export default function ChatbotPage() {
   const [view, setView] = useState<View>("list");
   const [bots, setBots] = useState<ChatbotItem[]>([]);
   const [numbers, setNumbers] = useState<WaNumber[]>([]);
+  const [templates, setTemplates] = useState<TemplateItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -50,12 +51,14 @@ export default function ChatbotPage() {
     if (!token) return;
     setLoading(true);
     try {
-      const [botsRes, numsRes] = await Promise.all([
+      const [botsRes, numsRes, tplRes] = await Promise.all([
         api.chatbot.list(token),
         api.whatsapp.numbers(token).catch(() => ({ numbers: [] as WaNumber[] })),
+        api.templates.list(token, { status: "APPROVED" }).catch(() => ({ templates: [] as TemplateItem[] })),
       ]);
       setBots(botsRes.chatbots);
       setNumbers(numsRes.numbers);
+      setTemplates(tplRes.templates);
     } catch (err) {
       setError((err as ApiError).message);
     } finally {
@@ -364,8 +367,23 @@ export default function ChatbotPage() {
               </div>
             ) : (
               <div className="field">
-                <label>Template name</label>
-                <input value={ruleForm.template_name} onChange={(e) => setRuleForm((f) => ({ ...f, template_name: e.target.value }))} placeholder="pg_owenr_welcome" />
+                <label>Template</label>
+                {templates.length > 0 ? (
+                  <select value={ruleForm.template_name} onChange={(e) => setRuleForm((f) => ({ ...f, template_name: e.target.value }))}>
+                    <option value="">— Select a template —</option>
+                    {!templates.some((t) => t.name === ruleForm.template_name) && ruleForm.template_name && (
+                      <option value={ruleForm.template_name}>{ruleForm.template_name} (manual)</option>
+                    )}
+                    {templates.map((t) => (
+                      <option key={t.id} value={t.name}>{t.name} · {t.language}{t.category ? ` · ${t.category.toLowerCase()}` : ""}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input value={ruleForm.template_name} onChange={(e) => setRuleForm((f) => ({ ...f, template_name: e.target.value }))} placeholder="No approved templates — type a name" />
+                )}
+                <span className="muted" style={{ fontSize: 12 }}>
+                  {templates.length > 0 ? `${templates.length} approved template${templates.length === 1 ? "" : "s"}` : "Only approved templates can be sent."}
+                </span>
               </div>
             )}
             <div className="field">
