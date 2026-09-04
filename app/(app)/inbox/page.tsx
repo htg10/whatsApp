@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, ApiError, Conversation, InboxMessage } from "@/lib/api";
+import { api, ApiError, Conversation, InboxMessage, TemplateItem } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 
 function timeAgo(iso: string | null): string {
@@ -135,6 +135,12 @@ export default function InboxPage() {
   const [recordingTime, setRecordingTime] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
 
+  // Reopen-with-template (WhatsApp 24h window)
+  const [templates, setTemplates] = useState<TemplateItem[]>([]);
+  const [tplName, setTplName] = useState("");
+  const [tplLang, setTplLang] = useState("en");
+  const [sendingTpl, setSendingTpl] = useState(false);
+
   // Message actions
   const [actionMenu, setActionMenu] = useState<MsgAction | null>(null);
   const [replyTo, setReplyTo] = useState<InboxMessage | null>(null);
@@ -178,6 +184,18 @@ export default function InboxPage() {
     pollRef.current = setInterval(loadConversations, 15000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [loadConversations]);
+
+  // Load approved templates once — used to re-open a closed 24h window.
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    api.templates.list(token, { status: "APPROVED" })
+      .then((r) => {
+        setTemplates(r.templates);
+        if (r.templates[0]) { setTplName(r.templates[0].name); setTplLang(r.templates[0].language || "en"); }
+      })
+      .catch(() => {});
+  }, []);
 
   const loadMessages = useCallback(async (convId: string) => {
     const token = getToken();
@@ -321,6 +339,27 @@ export default function InboxPage() {
       setError((err as ApiError).message);
     } finally {
       setSending(false);
+    }
+  }
+
+  // Send an approved template to re-open a chat whose 24h window has closed.
+  async function sendReopenTemplate() {
+    const token = getToken();
+    if (!token || !activeId || !tplName) return;
+    setSendingTpl(true);
+    setError(null);
+    try {
+      const res = await api.inbox.send(token, activeId, { type: "template", template: tplName, language: tplLang });
+      setMessages((prev) => [res.message, ...prev]);
+      setTplName("");
+      // Reload so the conversation's window flips back to open.
+      await Promise.all([loadConversations(), activeId ? loadMessages(activeId) : Promise.resolve()]);
+      setToast("Template sent — the 24-hour window is open again. You can reply freely now.");
+      setTimeout(() => setToast(null), 5000);
+    } catch (err) {
+      setError((err as ApiError).message);
+    } finally {
+      setSendingTpl(false);
     }
   }
 
@@ -744,6 +783,7 @@ export default function InboxPage() {
               <input ref={fileRef} type="file" style={{ display: "none" }} onChange={handleFileSelect} />
               <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={handleFileSelect} />
 
+              {activeConv.window_open ? (<>
               {/* Attachment button */}
               <button
                 className="attach-btn"
@@ -814,6 +854,26 @@ export default function InboxPage() {
                 >
                   🎤
                 </button>
+              )}
+              </>) : (
+                <div style={{ display: "flex", gap: 8, width: "100%", alignItems: "center", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>🔒 Window closed — reopen with a template:</span>
+                  <select
+                    value={tplName}
+                    onChange={(e) => { const t = templates.find((x) => x.name === e.target.value); setTplName(e.target.value); if (t?.language) setTplLang(t.language); }}
+                    style={{ flex: 1, minWidth: 160, padding: "9px 10px", border: "1px solid var(--border)", borderRadius: 8, fontSize: 13, background: "#fff" }}
+                  >
+                    {templates.length === 0 && <option value="">No approved templates</option>}
+                    {templates.map((t) => <option key={t.id} value={t.name}>{t.name} · {t.language}{t.category ? ` · ${t.category.toLowerCase()}` : ""}</option>)}
+                  </select>
+                  <button
+                    onClick={sendReopenTemplate}
+                    disabled={sendingTpl || !tplName}
+                    style={{ padding: "9px 16px", borderRadius: 8, border: "none", background: "var(--green)", color: "#fff", fontWeight: 600, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap", opacity: sendingTpl || !tplName ? 0.6 : 1 }}
+                  >
+                    {sendingTpl ? "Sending…" : "Send template"}
+                  </button>
+                </div>
               )}
             </div>
           </>
