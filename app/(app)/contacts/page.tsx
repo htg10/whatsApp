@@ -325,6 +325,7 @@ export default function ContactsPage() {
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr style={{ borderBottom: "2px solid var(--border)" }}>
+                    <th style={{ textAlign: "left", padding: "8px 4px", width: 48 }}>#</th>
                     <th style={{ textAlign: "left", padding: "8px 4px" }}>Name</th>
                     <th style={{ textAlign: "left", padding: "8px 4px" }}>Phone</th>
                     <th style={{ textAlign: "left", padding: "8px 4px" }}>Email</th>
@@ -334,8 +335,11 @@ export default function ContactsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {contacts.map((c) => (
+                  {contacts.map((c, i) => (
                     <tr key={c.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                      <td style={{ padding: "8px 4px", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>
+                        {(meta.current_page - 1) * 25 + i + 1}
+                      </td>
                       <td style={{ padding: "8px 4px", cursor: "pointer", color: "#1a7f64", fontWeight: 500 }} onClick={() => viewDetail(c.id)}>
                         {c.name || "—"}
                       </td>

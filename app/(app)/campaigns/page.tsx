@@ -415,6 +415,7 @@ export default function CampaignsPage() {
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr style={{ borderBottom: "2px solid var(--border)" }}>
+                    <th style={{ textAlign: "left", padding: "8px 4px", width: 48 }}>#</th>
                     <th style={{ textAlign: "left", padding: "8px 4px" }}>Name</th>
                     <th style={{ textAlign: "left", padding: "8px 4px" }}>Template</th>
                     <th style={{ textAlign: "left", padding: "8px 4px" }}>Status</th>
@@ -426,8 +427,9 @@ export default function CampaignsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {campaigns.map((c) => (
+                  {campaigns.map((c, i) => (
                     <tr key={c.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                      <td style={{ padding: "8px 4px", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{i + 1}</td>
                       <td style={{ padding: "8px 4px", fontWeight: 500, cursor: "pointer", color: "#1a7f64" }} onClick={() => viewCampaignDetail(c.id)}>{c.name}</td>
                       <td style={{ padding: "8px 4px", fontFamily: "monospace" }}>{c.template?.name ?? "—"}</td>
                       <td style={{ padding: "8px 4px" }}><StatusBadge status={c.status} /></td>
@@ -578,6 +580,7 @@ export default function CampaignsPage() {
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr style={{ borderBottom: "2px solid var(--border)" }}>
+                    <th style={{ textAlign: "left", padding: "8px 4px", width: 48 }}>#</th>
                     <th style={{ textAlign: "left", padding: "8px 4px" }}>Template</th>
                     <th style={{ textAlign: "left", padding: "8px 4px" }}>Language</th>
                     <th style={{ textAlign: "left", padding: "8px 4px" }}>Status</th>
@@ -589,8 +592,9 @@ export default function CampaignsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sends.map((s) => (
+                  {sends.map((s, i) => (
                     <tr key={s.uuid} style={{ borderBottom: "1px solid var(--border)" }}>
+                      <td style={{ padding: "8px 4px", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{i + 1}</td>
                       <td style={{ padding: "8px 4px", fontFamily: "monospace" }}>{s.template_name}</td>
                       <td style={{ padding: "8px 4px" }}>{s.language}</td>
                       <td style={{ padding: "8px 4px" }}><StatusBadge status={s.status} /></td>

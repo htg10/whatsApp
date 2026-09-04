@@ -67,7 +67,9 @@ function MediaBubble({ msg }: { msg: InboxMessage }) {
   if (att.type === "image") {
     return (
       <div className="bubble-media">
-        {att.url && <img src={att.url} alt={att.caption || "Image"} loading="lazy" />}
+        {att.url
+          ? <a href={att.url} target="_blank" rel="noopener noreferrer" title="Open full size"><img src={att.url} alt={att.caption || "Image"} loading="lazy" /></a>
+          : <div style={{ padding: "10px 12px", fontSize: 12, color: "var(--muted)" }}>🖼️ Image unavailable</div>}
         {att.caption && <div style={{ marginTop: 4, fontSize: 13 }}>{att.caption}</div>}
       </div>
     );
@@ -76,7 +78,9 @@ function MediaBubble({ msg }: { msg: InboxMessage }) {
   if (att.type === "video") {
     return (
       <div className="bubble-media">
-        {att.url && <video src={att.url} controls preload="metadata" style={{ maxHeight: 300 }} />}
+        {att.url
+          ? <video src={att.url} controls playsInline preload="metadata" style={{ maxWidth: 280, maxHeight: 340 }} />
+          : <div style={{ padding: "10px 12px", fontSize: 12, color: "var(--muted)" }}>🎬 Video unavailable</div>}
         {att.caption && <div style={{ marginTop: 4, fontSize: 13 }}>{att.caption}</div>}
       </div>
     );

@@ -177,6 +177,7 @@ export default function TemplatesPage() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ borderBottom: "2px solid var(--border)" }}>
+                  <th style={{ textAlign: "left", padding: "8px 4px", width: 48 }}>#</th>
                   <th style={{ textAlign: "left", padding: "8px 4px" }}>Template name</th>
                   <th style={{ textAlign: "left", padding: "8px 4px" }}>Language</th>
                   <th style={{ textAlign: "left", padding: "8px 4px" }}>Category</th>
@@ -186,8 +187,9 @@ export default function TemplatesPage() {
                 </tr>
               </thead>
               <tbody>
-                {templates.map((t) => (
+                {templates.map((t, i) => (
                   <tr key={t.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                    <td style={{ padding: "8px 4px", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{i + 1}</td>
                     <td style={{ padding: "8px 4px", fontFamily: "monospace", fontWeight: 500 }}>{t.name}</td>
                     <td style={{ padding: "8px 4px" }}>{t.language}</td>
                     <td style={{ padding: "8px 4px" }}>
