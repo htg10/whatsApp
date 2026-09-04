@@ -7,11 +7,12 @@ import { useUser } from "@/lib/user-context";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingBlock } from "@/components/Preloader";
 
-const EMPTY = { company_name: "", owner_name: "", owner_email: "", password: "", phone: "" };
+const EMPTY = { company_name: "", owner_name: "", owner_email: "", password: "", phone: "", plan_id: "" };
 
 export default function CompaniesPage() {
   const me = useUser();
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [plans, setPlans] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -29,12 +30,25 @@ export default function CompaniesPage() {
     try {
       const res = await api.admin.companies(token);
       setCompanies(res.companies);
+      setPlans(res.plans ?? []);
     } catch (err) {
       setError((err as ApiError).message);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  async function changePlan(c: Company, planId: string) {
+    const token = getToken();
+    if (!token || !planId) return;
+    try {
+      await api.admin.assignPlan(token, c.id, planId);
+      flash("Plan updated.");
+      await load();
+    } catch (err) {
+      setError((err as ApiError).message);
+    }
+  }
 
   useEffect(() => { if (isSuper) load(); else setLoading(false); }, [isSuper, load]);
 
@@ -56,6 +70,7 @@ export default function CompaniesPage() {
         owner_email: form.owner_email,
         password: form.password,
         phone: form.phone || undefined,
+        plan_id: form.plan_id || undefined,
       });
       setShowAdd(false);
       setForm({ ...EMPTY });
@@ -137,7 +152,8 @@ export default function CompaniesPage() {
               <tr style={{ textAlign: "left", fontSize: 12, color: "#667781", background: "#f8fafb", borderBottom: "1px solid #eef1f2" }}>
                 <th style={{ padding: "12px 14px" }}>Company</th>
                 <th style={{ padding: "12px 14px" }}>Owner</th>
-                <th style={{ padding: "12px 14px" }}>Users</th>
+                <th style={{ padding: "12px 14px" }}>Plan</th>
+                <th style={{ padding: "12px 14px" }}>Agents</th>
                 <th style={{ padding: "12px 14px" }}>Status</th>
                 <th style={{ padding: "12px 14px", textAlign: "right" }}>Actions</th>
               </tr>
@@ -150,7 +166,16 @@ export default function CompaniesPage() {
                     <div style={{ fontSize: 13 }}>{c.owner_name ?? "—"}</div>
                     <div className="muted" style={{ fontSize: 12 }}>{c.owner_email}</div>
                   </td>
-                  <td style={{ padding: "12px 14px" }}>{c.users_count}</td>
+                  <td style={{ padding: "12px 14px" }}>
+                    <select value={c.plan_id ?? ""} onChange={(e) => changePlan(c, e.target.value)}
+                      style={{ padding: "6px 8px", border: "1px solid var(--border)", borderRadius: 8, fontSize: 13, maxWidth: 150 }}>
+                      <option value="">— No plan —</option>
+                      {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  </td>
+                  <td style={{ padding: "12px 14px", fontVariantNumeric: "tabular-nums" }}>
+                    {c.agents_used ?? 0}{c.agents_limit != null ? ` / ${c.agents_limit}` : " / ∞"}
+                  </td>
                   <td style={{ padding: "12px 14px" }}>
                     <span style={{
                       background: c.status === "suspended" ? "#fdecec" : "#e7f7ef",
@@ -194,6 +219,14 @@ export default function CompaniesPage() {
               <div className="field">
                 <label>Phone <span className="muted">(optional)</span></label>
                 <input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+91…" />
+              </div>
+              <div className="field">
+                <label>Subscription plan</label>
+                <select value={form.plan_id} onChange={(e) => setForm((f) => ({ ...f, plan_id: e.target.value }))}>
+                  <option value="">— No plan (unlimited) —</option>
+                  {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+                <span className="muted" style={{ fontSize: 12 }}>Controls the company&apos;s agent limit &amp; feature access.</span>
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                 <button className="btn" disabled={submitting}>{submitting ? "Creating…" : "Create company"}</button>

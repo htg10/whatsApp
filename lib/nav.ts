@@ -27,6 +27,7 @@ export const NAV: NavItem[] = [
 export const SUPER_ADMIN_NAV: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: "▤" },
   { label: "Companies", href: "/companies", icon: "🏢" },
+  { label: "Plans", href: "/plans", icon: "💳" },
 ];
 
 type NavUser = { is_super_admin?: boolean; permissions?: string[] };

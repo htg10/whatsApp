@@ -335,13 +335,26 @@ export const api = {
 
   admin: {
     companies: (token: string) =>
-      request<{ companies: Company[] }>("/admin/companies", { token }),
-    createCompany: (token: string, body: { company_name: string; owner_name: string; owner_email: string; password: string; phone?: string }) =>
+      request<{ companies: Company[]; plans: { id: string; name: string }[] }>("/admin/companies", { token }),
+    createCompany: (token: string, body: { company_name: string; owner_name: string; owner_email: string; password: string; phone?: string; plan_id?: string }) =>
       request<{ company: Company }>("/admin/companies", { method: "POST", body, token }),
     toggleCompany: (token: string, id: string) =>
       request<{ message: string; status: string }>(`/admin/companies/${id}/toggle`, { method: "POST", token }),
+    assignPlan: (token: string, id: string, planId: string) =>
+      request<{ message: string }>(`/admin/companies/${id}/plan`, { method: "POST", body: { plan_id: planId }, token }),
     removeCompany: (token: string, id: string) =>
       request<{ message: string }>(`/admin/companies/${id}`, { method: "DELETE", token }),
+
+    plans: (token: string) =>
+      request<{ plans: AdminPlan[]; limit_keys: string[]; feature_keys: string[] }>("/admin/plans", { token }),
+    createPlan: (token: string, body: Record<string, unknown>) =>
+      request<{ plan: AdminPlan }>("/admin/plans", { method: "POST", body, token }),
+    updatePlan: (token: string, id: string, body: Record<string, unknown>) =>
+      request<{ plan: AdminPlan }>(`/admin/plans/${id}`, { method: "PUT", body, token }),
+    togglePlan: (token: string, id: string) =>
+      request<{ plan: AdminPlan }>(`/admin/plans/${id}/toggle`, { method: "POST", token }),
+    removePlan: (token: string, id: string) =>
+      request<{ message: string }>(`/admin/plans/${id}`, { method: "DELETE", token }),
   },
 
   social: {
@@ -430,8 +443,28 @@ export type Company = {
   users_count: number;
   owner_name: string | null;
   owner_email: string | null;
+  plan_id?: string | null;
+  plan_name?: string | null;
+  agents_used?: number;
+  agents_limit?: number | null; // null = unlimited
   trial_ends_at: string | null;
   created_at: string | null;
+};
+
+export type AdminPlan = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  billing_period: string;
+  price: number;
+  currency: string;
+  limits: Record<string, number>;
+  features: Record<string, boolean>;
+  is_active: boolean;
+  is_public: boolean;
+  sort_order: number;
+  subscribers: number;
 };
 
 export type WaNumber = {
