@@ -26,6 +26,30 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+/** delivered / total as a percentage string. */
+function deliveryPct(total: number, delivered: number): string {
+  if (!total) return "0.00%";
+  return `${((delivered / total) * 100).toFixed(2)}%`;
+}
+
+/** Build a CSV string from headers + rows and trigger a browser download. */
+function downloadCsv(filename: string, headers: string[], rows: (string | number)[][]) {
+  const esc = (v: string | number) => {
+    const s = String(v ?? "");
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = [headers, ...rows].map((r) => r.map(esc).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 type Tab = "campaigns" | "bulk";
 
 export default function CampaignsPage() {
@@ -254,6 +278,31 @@ export default function CampaignsPage() {
 
   const parsedCount = parseNumbers(bulkNumbers).length;
 
+  function downloadCampaignReport(c: CampaignItem) {
+    downloadCsv(
+      `campaign_${c.name.replace(/\s+/g, "_")}.csv`,
+      ["Campaign", "Status", "Total Numbers", "Sent", "Delivered", "Read", "Failed", "Replied", "Delivery %", "Created"],
+      [[
+        c.name, c.status, c.total_recipients, c.sent_count, c.delivered_count, c.read_count,
+        c.failed_count, c.replied_count, deliveryPct(c.total_recipients, c.delivered_count),
+        c.created_at ? new Date(c.created_at).toLocaleString("en-IN") : "",
+      ]],
+    );
+  }
+
+  function downloadAllCampaigns() {
+    downloadCsv(
+      `campaigns_report_${new Date().toISOString().slice(0, 10)}.csv`,
+      ["#", "Campaign", "Template", "Status", "Total Numbers", "Sent", "Delivered", "Read", "Failed", "Replied", "Delivery %", "Created"],
+      campaigns.map((c, i) => [
+        i + 1, c.name, c.template?.name ?? "", c.status, c.total_recipients, c.sent_count,
+        c.delivered_count, c.read_count, c.failed_count, c.replied_count,
+        deliveryPct(c.total_recipients, c.delivered_count),
+        c.created_at ? new Date(c.created_at).toLocaleString("en-IN") : "",
+      ]),
+    );
+  }
+
   return (
     <>
       <PageHeader
@@ -411,40 +460,56 @@ export default function CampaignsPage() {
           ) : campaigns.length === 0 ? (
             <p className="muted">No campaigns yet. Click "+ New Campaign" to create one targeting your contacts.</p>
           ) : (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead>
-                  <tr style={{ borderBottom: "2px solid var(--border)" }}>
-                    <th style={{ textAlign: "left", padding: "8px 4px", width: 48 }}>#</th>
-                    <th style={{ textAlign: "left", padding: "8px 4px" }}>Name</th>
-                    <th style={{ textAlign: "left", padding: "8px 4px" }}>Template</th>
-                    <th style={{ textAlign: "left", padding: "8px 4px" }}>Status</th>
-                    <th style={{ textAlign: "right", padding: "8px 4px" }}>Recipients</th>
-                    <th style={{ textAlign: "right", padding: "8px 4px" }}>Sent</th>
-                    <th style={{ textAlign: "right", padding: "8px 4px" }}>Failed</th>
-                    <th style={{ textAlign: "left", padding: "8px 4px" }}>Created</th>
-                    <th style={{ textAlign: "right", padding: "8px 4px" }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {campaigns.map((c, i) => (
-                    <tr key={c.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                      <td style={{ padding: "8px 4px", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{i + 1}</td>
-                      <td style={{ padding: "8px 4px", fontWeight: 500, cursor: "pointer", color: "#1a7f64" }} onClick={() => viewCampaignDetail(c.id)}>{c.name}</td>
-                      <td style={{ padding: "8px 4px", fontFamily: "monospace" }}>{c.template?.name ?? "—"}</td>
-                      <td style={{ padding: "8px 4px" }}><StatusBadge status={c.status} /></td>
-                      <td style={{ padding: "8px 4px", textAlign: "right" }}>{c.total_recipients}</td>
-                      <td style={{ padding: "8px 4px", textAlign: "right", color: "#0a7d47" }}>{c.sent_count}</td>
-                      <td style={{ padding: "8px 4px", textAlign: "right", color: "#c53030" }}>{c.failed_count}</td>
-                      <td style={{ padding: "8px 4px" }}>{c.created_at ? new Date(c.created_at).toLocaleDateString("en-IN") : "—"}</td>
-                      <td style={{ padding: "8px 4px", textAlign: "right" }}>
-                        <button className="btn-mini" onClick={() => viewCampaignDetail(c.id)}>View</button>
-                      </td>
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+                <h3 style={{ margin: 0, fontSize: 15 }}>Campaign report</h3>
+                <button className="btn-mini" onClick={downloadAllCampaigns}>⬇ Download report</button>
+              </div>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, whiteSpace: "nowrap" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "2px solid var(--border)", color: "#667781" }}>
+                      <th style={{ textAlign: "left", padding: "8px 6px", width: 40 }}>#</th>
+                      <th style={{ textAlign: "left", padding: "8px 6px" }}>Name</th>
+                      <th style={{ textAlign: "left", padding: "8px 6px" }}>Status</th>
+                      <th style={{ textAlign: "right", padding: "8px 6px" }}>Total&nbsp;Numbers</th>
+                      <th style={{ textAlign: "right", padding: "8px 6px" }}>Sent</th>
+                      <th style={{ textAlign: "right", padding: "8px 6px" }}>Delivered</th>
+                      <th style={{ textAlign: "right", padding: "8px 6px" }}>Read</th>
+                      <th style={{ textAlign: "right", padding: "8px 6px" }}>Failed</th>
+                      <th style={{ textAlign: "right", padding: "8px 6px" }}>Replied</th>
+                      <th style={{ textAlign: "right", padding: "8px 6px" }}>Delivery&nbsp;%</th>
+                      <th style={{ textAlign: "left", padding: "8px 6px" }}>Created</th>
+                      <th style={{ textAlign: "right", padding: "8px 6px" }}>Report</th>
+                      <th style={{ textAlign: "right", padding: "8px 6px" }}></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {campaigns.map((c, i) => (
+                      <tr key={c.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                        <td style={{ padding: "8px 6px", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{i + 1}</td>
+                        <td style={{ padding: "8px 6px", fontWeight: 500, cursor: "pointer", color: "#1a7f64" }} onClick={() => viewCampaignDetail(c.id)}>{c.name}</td>
+                        <td style={{ padding: "8px 6px" }}><StatusBadge status={c.status} /></td>
+                        <td style={{ padding: "8px 6px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{c.total_recipients}</td>
+                        <td style={{ padding: "8px 6px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{c.sent_count}</td>
+                        <td style={{ padding: "8px 6px", textAlign: "right", color: "#007bfc", fontVariantNumeric: "tabular-nums" }}>{c.delivered_count}</td>
+                        <td style={{ padding: "8px 6px", textAlign: "right", color: "#53bdeb", fontVariantNumeric: "tabular-nums" }}>{c.read_count}</td>
+                        <td style={{ padding: "8px 6px", textAlign: "right", color: "#c53030", fontVariantNumeric: "tabular-nums" }}>{c.failed_count}</td>
+                        <td style={{ padding: "8px 6px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{c.replied_count}</td>
+                        <td style={{ padding: "8px 6px", textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{deliveryPct(c.total_recipients, c.delivered_count)}</td>
+                        <td style={{ padding: "8px 6px" }}>{c.created_at ? new Date(c.created_at).toLocaleDateString("en-IN") : "—"}</td>
+                        <td style={{ padding: "8px 6px", textAlign: "right" }}>
+                          <button className="btn-mini" title="Download report" onClick={() => downloadCampaignReport(c)}>⬇</button>
+                        </td>
+                        <td style={{ padding: "8px 6px", textAlign: "right" }}>
+                          <button className="btn-mini" onClick={() => viewCampaignDetail(c.id)}>View</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       )}

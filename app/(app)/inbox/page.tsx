@@ -124,6 +124,9 @@ export default function InboxPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<string>("all");
+  const [agentFilter, setAgentFilter] = useState<string>("");
+  const [stickyOnly, setStickyOnly] = useState(false);
+  const [sticky, setSticky] = useState<Set<string>>(new Set());
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [showAttach, setShowAttach] = useState(false);
@@ -160,6 +163,24 @@ export default function InboxPage() {
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
+  }, []);
+
+  // Sticky (pinned) chats persist per browser.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("inbox_sticky");
+      if (raw) setSticky(new Set(JSON.parse(raw)));
+    } catch {}
+  }, []);
+
+  const toggleSticky = useCallback((id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSticky((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      try { localStorage.setItem("inbox_sticky", JSON.stringify([...next])); } catch {}
+      return next;
+    });
   }, []);
 
   const loadConversations = useCallback(async () => {
@@ -519,8 +540,76 @@ export default function InboxPage() {
   const activeConv = conversations.find((c) => c.id === activeId);
   const isMediaMessage = (type: string) => ["image", "video", "audio", "document"].includes(type);
 
+  const agentNames = Array.from(new Set(conversations.map((c) => c.assigned_agent?.name).filter(Boolean))) as string[];
+
+  const displayedConversations = conversations
+    .filter((c) => !agentFilter || c.assigned_agent?.name === agentFilter)
+    .filter((c) => !stickyOnly || sticky.has(c.id))
+    .slice()
+    .sort((a, b) => (sticky.has(b.id) ? 1 : 0) - (sticky.has(a.id) ? 1 : 0));
+
+  // Chats whose last activity was today (approx. "active today").
+  const todayCount = conversations.filter((c) => {
+    if (!c.last_message_at) return false;
+    const d = new Date(c.last_message_at);
+    const now = new Date();
+    return d.toDateString() === now.toDateString();
+  }).length;
+
+  function downloadChatReport() {
+    const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+    const headers = ["Contact", "Phone", "Status", "Unread", "Agent", "Last message", "Last activity"];
+    const rows = displayedConversations.map((c) => [
+      c.contact?.name || "Unknown",
+      c.contact?.wa_id ? `+${c.contact.wa_id}` : (c.contact?.phone || ""),
+      c.status,
+      String(c.unread_count),
+      c.assigned_agent?.name || "",
+      c.last_message_preview || "",
+      c.last_message_at ? new Date(c.last_message_at).toLocaleString("en-IN") : "",
+    ]);
+    const csv = [headers, ...rows].map((r) => r.map(esc).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `chat_report_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   return (
-    <div className="inbox-layout">
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 80px)" }}>
+      {/* Live chat toolbar */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap",
+        padding: "10px 16px", border: "1px solid var(--border)", borderBottom: "none",
+        borderRadius: "var(--radius) var(--radius) 0 0", background: "var(--card)",
+      }}>
+        <div style={{ fontWeight: 700, color: "#1a7f64", fontSize: 15, whiteSpace: "nowrap" }}>WhatsApp Live Chat</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#54656f" }}>
+          <span style={{ background: "#e7f7ef", color: "#0a7d47", padding: "3px 10px", borderRadius: 999, fontWeight: 600 }}>Active today: {todayCount}</span>
+          <span style={{ background: "#eef1f2", color: "#54656f", padding: "3px 10px", borderRadius: 999, fontWeight: 600 }}>Total: {conversations.length}</span>
+        </div>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          {agentNames.length > 0 && (
+            <select value={agentFilter} onChange={(e) => setAgentFilter(e.target.value)}
+              style={{ padding: "7px 10px", border: "1px solid var(--border)", borderRadius: 8, fontSize: 13, background: "#fff" }}>
+              <option value="">All agents</option>
+              {agentNames.map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+          )}
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap", color: "#54656f" }}>
+            <input type="checkbox" checked={stickyOnly} onChange={(e) => setStickyOnly(e.target.checked)} />
+            📌 Sticky chats
+          </label>
+          <button className="btn-mini" onClick={downloadChatReport}>⬇ Download report</button>
+        </div>
+      </div>
+
+      <div className="inbox-layout" style={{ height: "auto", flex: 1, minHeight: 0, borderRadius: "0 0 var(--radius) var(--radius)" }}>
       {/* Toast */}
       {toast && (
         <div style={{
@@ -632,12 +721,12 @@ export default function InboxPage() {
         <div className="convo-list-items">
           {loading ? (
             <div style={{ padding: 20, color: "var(--muted)", textAlign: "center" }}>Loading...</div>
-          ) : conversations.length === 0 ? (
+          ) : displayedConversations.length === 0 ? (
             <div style={{ padding: 20, color: "var(--muted)", textAlign: "center" }}>
-              No conversations yet. Send a message from the WhatsApp page, or wait for incoming messages after configuring webhooks.
+              {stickyOnly ? "No sticky chats yet. Tap the 📌 on a chat to pin it." : agentFilter ? "No chats for this agent." : "No conversations yet. Send a message from the WhatsApp page, or wait for incoming messages after configuring webhooks."}
             </div>
           ) : (
-            conversations.map((conv) => (
+            displayedConversations.map((conv) => (
               <div
                 key={conv.id}
                 className={`convo-item ${activeId === conv.id ? "active" : ""}`}
@@ -649,7 +738,14 @@ export default function InboxPage() {
                 <div className="convo-info">
                   <div className="convo-name">
                     <span>{conv.contact?.name || conv.contact?.phone || conv.contact?.wa_id || "Unknown"}</span>
-                    <span className="time">{timeAgo(conv.last_message_at)}</span>
+                    <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <button
+                        onClick={(e) => toggleSticky(conv.id, e)}
+                        title={sticky.has(conv.id) ? "Unpin" : "Pin chat"}
+                        style={{ border: "none", background: "none", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: 0, opacity: sticky.has(conv.id) ? 1 : 0.35 }}
+                      >📌</button>
+                      <span className="time">{timeAgo(conv.last_message_at)}</span>
+                    </span>
                   </div>
                   <div className="convo-preview">
                     <span>{conv.last_message_preview || "No messages"}</span>
@@ -878,6 +974,7 @@ export default function InboxPage() {
             </div>
           </>
         )}
+      </div>
       </div>
     </div>
   );
