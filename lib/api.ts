@@ -138,6 +138,24 @@ export const api = {
       request<{ template: TemplateItem }>(`/templates/${id}`, { token }),
     sync: (token: string) =>
       request<{ message: string; synced: number }>("/templates/sync", { method: "POST", token }),
+    create: (token: string, body: TemplateCreateBody) =>
+      request<{ template: TemplateItem; message: string }>("/templates", { method: "POST", body, token }),
+    remove: (token: string, id: string) =>
+      request<{ message: string }>(`/templates/${id}`, { method: "DELETE", token }),
+  },
+
+  blacklist: {
+    list: (token: string, params?: { search?: string; page?: number }) => {
+      const qs = new URLSearchParams();
+      if (params?.search) qs.set("search", params.search);
+      if (params?.page) qs.set("page", String(params.page));
+      const q = qs.toString();
+      return request<{ entries: BlacklistItem[]; meta: PaginationMeta }>(`/blacklist${q ? `?${q}` : ""}`, { token });
+    },
+    add: (token: string, body: { phone: string; name?: string; reason?: string }) =>
+      request<{ entry: BlacklistItem }>("/blacklist", { method: "POST", body, token }),
+    remove: (token: string, id: string) =>
+      request<{ message: string }>(`/blacklist/${id}`, { method: "DELETE", token }),
   },
 
   bulk: {
@@ -570,6 +588,36 @@ export type TemplateItem = {
   last_synced_at: string | null;
   components?: { type: string; format: string | null; text: string | null; buttons: unknown[] | null }[];
   waba?: { id: string; name: string };
+  created_at: string | null;
+};
+
+export type TemplateButton = {
+  type: "QUICK_REPLY" | "URL" | "PHONE_NUMBER" | "COPY_CODE";
+  text: string;
+  url?: string;
+  phone_number?: string;
+  example?: string;
+};
+
+export type TemplateCreateBody = {
+  name: string;
+  language: string;
+  category: "MARKETING" | "UTILITY" | "AUTHENTICATION";
+  waba_id?: string;
+  header_format?: "NONE" | "TEXT" | "IMAGE" | "VIDEO" | "DOCUMENT";
+  header_text?: string;
+  body: string;
+  body_example?: string[];
+  footer?: string;
+  buttons?: TemplateButton[];
+};
+
+export type BlacklistItem = {
+  id: string;
+  phone: string;
+  name: string | null;
+  reason: string | null;
+  source: string;
   created_at: string | null;
 };
 
