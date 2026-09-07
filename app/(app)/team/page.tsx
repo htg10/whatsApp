@@ -28,6 +28,14 @@ export default function TeamPage() {
   const canRemove = (me.permissions ?? []).includes("team.remove");
   const featureLabel = (k: string) => features.find((f) => f.key === k)?.label ?? k;
 
+  // A feature checkbox is only offered if the company's plan includes it.
+  const FEATURE_PLAN_MAP: Record<string, string> = { social: "social", chatbot: "chatbot", automations: "automations", analytics: "reports" };
+  const planFeatures = me.plan_features;
+  const visibleFeatures = features.filter((f) => {
+    const req = FEATURE_PLAN_MAP[f.key];
+    return !req || planFeatures == null || planFeatures.includes(req);
+  });
+
   const load = useCallback(async () => {
     const token = getToken();
     if (!token) return;
@@ -68,7 +76,7 @@ export default function TeamPage() {
   }
 
   function allFeatures(on: boolean) {
-    setForm((f) => ({ ...f, features: on ? features.map((x) => x.key) : [] }));
+    setForm((f) => ({ ...f, features: on ? visibleFeatures.map((x) => x.key) : [] }));
   }
 
   async function submit(e: React.FormEvent) {
@@ -80,7 +88,7 @@ export default function TeamPage() {
     const feats = form.role === "admin" ? [] : form.features;
     try {
       if (editingId) {
-        await api.team.update(token, editingId, { name: form.name, role: form.role, features: feats });
+        await api.team.update(token, editingId, { name: form.name, role: form.role, features: feats, password: form.password || undefined });
         flash(`${form.name} updated.`);
       } else {
         await api.team.create(token, { name: form.name, email: form.email, password: form.password, role: form.role, features: feats });
@@ -226,6 +234,13 @@ export default function TeamPage() {
                   </div>
                 </>
               )}
+              {editingId && (
+                <div className="field">
+                  <label>Reset password <span className="muted">(optional)</span></label>
+                  <input type="text" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} minLength={8} placeholder="Leave blank to keep current password" />
+                  <span className="muted" style={{ fontSize: 12 }}>Enter a new password (min 8 chars) to change this agent&apos;s login.</span>
+                </div>
+              )}
               {roles.length > 1 ? (
                 <div className="field">
                   <label>Role</label>
@@ -256,7 +271,7 @@ export default function TeamPage() {
                     </div>
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, border: "1px solid var(--border)", borderRadius: 10, padding: 12, maxHeight: 240, overflowY: "auto" }}>
-                    {features.map((f) => (
+                    {visibleFeatures.map((f) => (
                       <label key={f.key} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer", padding: "4px 2px" }}>
                         <input type="checkbox" checked={form.features.includes(f.key)} onChange={() => toggleFeature(f.key)} />
                         <span>{f.label}</span>
@@ -264,7 +279,7 @@ export default function TeamPage() {
                     ))}
                   </div>
                   <span className="muted" style={{ fontSize: 12, marginTop: 6, display: "block" }}>
-                    {form.features.length} of {features.length} selected. Dashboard is always visible.
+                    {form.features.length} of {visibleFeatures.length} selected. Dashboard is always visible.
                   </span>
                 </div>
               )}

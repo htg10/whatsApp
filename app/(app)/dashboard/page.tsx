@@ -77,7 +77,7 @@ export default function DashboardPage() {
         {can("campaigns.view") && <Link href="/campaigns" className="quick-action">📣 New Campaign</Link>}
         {can("contacts.view") && <Link href="/contacts" className="quick-action">☰ Contacts</Link>}
         {can("team.view") && <Link href="/team" className="quick-action">👥 Manage Team</Link>}
-        {can("billing.view") && <Link href="/billing" className="quick-action">₹ Billing</Link>}
+        {!user.is_super_admin && can("billing.view") && <Link href="/billing" className="quick-action">₹ Billing</Link>}
       </div>
 
       {/* Primary stats */}

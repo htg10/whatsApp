@@ -4,6 +4,8 @@ export type NavItem = {
   icon: string;
   /** Permission required to see this item. Omit = everyone (any signed-in user). */
   perm?: string;
+  /** Plan feature key required. Omit = core feature, always available. */
+  feature?: string;
 };
 
 // Company/agent navigation. Filtered by the signed-in user's permissions.
@@ -13,12 +15,12 @@ export const NAV: NavItem[] = [
   { label: "Contacts", href: "/contacts", icon: "☰", perm: "contacts.view" },
   { label: "Black List", href: "/blacklist", icon: "🚫", perm: "contacts.view" },
   { label: "Campaigns", href: "/campaigns", icon: "📣", perm: "campaigns.view" },
-  { label: "Social", href: "/social", icon: "📸", perm: "campaigns.view" },
-  { label: "Automations", href: "/automations", icon: "⚙", perm: "workflows.view" },
-  { label: "Chatbot", href: "/chatbot", icon: "🤖", perm: "bots.view" },
+  { label: "Social", href: "/social", icon: "📸", perm: "campaigns.view", feature: "social" },
+  { label: "Automations", href: "/automations", icon: "⚙", perm: "workflows.view", feature: "automations" },
+  { label: "Chatbot", href: "/chatbot", icon: "🤖", perm: "bots.view", feature: "chatbot" },
   { label: "Agents", href: "/agents", icon: "🎧", perm: "agents.view" },
   { label: "Templates", href: "/templates", icon: "▧", perm: "templates.view" },
-  { label: "Analytics", href: "/analytics", icon: "▚", perm: "analytics.view" },
+  { label: "Analytics", href: "/analytics", icon: "▚", perm: "analytics.view", feature: "reports" },
   { label: "WhatsApp", href: "/whatsapp", icon: "✆", perm: "whatsapp.view" },
   { label: "Team", href: "/team", icon: "👥", perm: "team.view" },
   { label: "Billing", href: "/billing", icon: "₹", perm: "billing.view" },
@@ -31,7 +33,7 @@ export const SUPER_ADMIN_NAV: NavItem[] = [
   { label: "Plans", href: "/plans", icon: "💳" },
 ];
 
-type NavUser = { is_super_admin?: boolean; permissions?: string[] };
+type NavUser = { is_super_admin?: boolean; permissions?: string[]; plan_features?: string[] | null };
 
 /**
  * The nav appropriate for this user. Super admins get the platform nav
@@ -40,9 +42,17 @@ type NavUser = { is_super_admin?: boolean; permissions?: string[] };
  */
 export function navFor(user: NavUser): NavItem[] {
   if (user.is_super_admin) {
-    const featureItems = NAV.filter((item) => item.href !== "/dashboard");
+    // Everything except Dashboard (already in the platform nav) and Billing
+    // (billing is a per-tenant subscription — the platform account has none).
+    const featureItems = NAV.filter((item) => item.href !== "/dashboard" && item.href !== "/billing");
     return [...SUPER_ADMIN_NAV, ...featureItems];
   }
   const perms = new Set(user.permissions ?? []);
-  return NAV.filter((item) => !item.perm || perms.has(item.perm));
+  // plan_features null/undefined = no plan → no feature gating (all available).
+  const planFeatures = user.plan_features == null ? null : new Set(user.plan_features);
+  return NAV.filter((item) => {
+    if (item.perm && !perms.has(item.perm)) return false;
+    if (item.feature && planFeatures && !planFeatures.has(item.feature)) return false;
+    return true;
+  });
 }

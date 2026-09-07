@@ -343,7 +343,7 @@ export const api = {
       request<{ members: TeamMember[]; roles: RoleOption[]; features: FeatureOption[] }>("/team", { token }),
     create: (token: string, body: { name: string; email: string; password: string; role: string; features: string[] }) =>
       request<{ member: TeamMember }>("/team", { method: "POST", body, token }),
-    update: (token: string, id: string, body: { name?: string; role?: string; features?: string[] }) =>
+    update: (token: string, id: string, body: { name?: string; role?: string; features?: string[]; password?: string }) =>
       request<{ member: TeamMember }>(`/team/${id}`, { method: "PUT", body, token }),
     toggle: (token: string, id: string) =>
       request<{ member: TeamMember }>(`/team/${id}/toggle`, { method: "POST", token }),
@@ -362,6 +362,10 @@ export const api = {
       request<{ message: string }>(`/admin/companies/${id}/plan`, { method: "POST", body: { plan_id: planId }, token }),
     removeCompany: (token: string, id: string) =>
       request<{ message: string }>(`/admin/companies/${id}`, { method: "DELETE", token }),
+    companyUsers: (token: string, id: string) =>
+      request<{ users: CompanyUser[] }>(`/admin/companies/${id}/users`, { token }),
+    resetUserPassword: (token: string, id: string, userId: string, password: string) =>
+      request<{ message: string }>(`/admin/companies/${id}/users/${userId}/reset-password`, { method: "POST", body: { password }, token }),
 
     plans: (token: string) =>
       request<{ plans: AdminPlan[]; limit_keys: string[]; feature_keys: string[] }>("/admin/plans", { token }),
@@ -469,6 +473,14 @@ export type Company = {
   created_at: string | null;
 };
 
+export type CompanyUser = {
+  id: string;
+  name: string;
+  email: string;
+  status: string;
+  role: string;
+};
+
 export type AdminPlan = {
   id: string;
   name: string;
@@ -523,6 +535,8 @@ export type User = {
   email_verified: boolean;
   roles: string[];
   permissions: string[];
+  /** Enabled plan feature keys; null = no plan / super admin (no gating). */
+  plan_features: string[] | null;
   tenant: Tenant | null;
   last_login_at: string | null;
 };

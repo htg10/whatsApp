@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, ApiError, Company } from "@/lib/api";
+import { api, ApiError, Company, CompanyUser } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { useUser } from "@/lib/user-context";
 import { PageHeader } from "@/components/PageHeader";
@@ -21,7 +21,42 @@ export default function CompaniesPage() {
   const [form, setForm] = useState({ ...EMPTY });
   const [submitting, setSubmitting] = useState(false);
 
+  // Manage-users (password reset) panel
+  const [usersFor, setUsersFor] = useState<Company | null>(null);
+  const [companyUsers, setCompanyUsers] = useState<CompanyUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+
   const isSuper = !!me.is_super_admin;
+
+  async function openUsers(c: Company) {
+    const token = getToken();
+    if (!token) return;
+    setUsersFor(c);
+    setCompanyUsers([]);
+    setUsersLoading(true);
+    try {
+      const res = await api.admin.companyUsers(token, c.id);
+      setCompanyUsers(res.users);
+    } catch (err) {
+      setError((err as ApiError).message);
+    } finally {
+      setUsersLoading(false);
+    }
+  }
+
+  async function resetPassword(u: CompanyUser) {
+    const token = getToken();
+    if (!token || !usersFor) return;
+    const pw = window.prompt(`New password for ${u.name} (${u.role}) — min 8 characters:`);
+    if (!pw) return;
+    if (pw.length < 8) { setError("Password must be at least 8 characters."); return; }
+    try {
+      const res = await api.admin.resetUserPassword(token, usersFor.id, u.id, pw);
+      flash(res.message);
+    } catch (err) {
+      setError((err as ApiError).message);
+    }
+  }
 
   const load = useCallback(async () => {
     const token = getToken();
@@ -184,13 +219,47 @@ export default function CompaniesPage() {
                     }}>{c.status}</span>
                   </td>
                   <td style={{ padding: "12px 14px", textAlign: "right", whiteSpace: "nowrap" }}>
-                    <button className="btn-mini" onClick={() => toggleCompany(c)}>{c.status === "suspended" ? "Reactivate" : "Suspend"}</button>
+                    <button className="btn-mini" onClick={() => openUsers(c)}>Users</button>
+                    <button className="btn-mini" style={{ marginLeft: 6 }} onClick={() => toggleCompany(c)}>{c.status === "suspended" ? "Reactivate" : "Suspend"}</button>
                     <button className="btn-mini" style={{ color: "#c53030", marginLeft: 6 }} onClick={() => removeCompany(c)}>Delete</button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {usersFor && (
+        <div className="msg-info-overlay" onClick={() => setUsersFor(null)}>
+          <div className="msg-info-panel" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h2 style={{ marginTop: 0 }}>{usersFor.name} — users</h2>
+              <button className="btn-mini" onClick={() => setUsersFor(null)}>Close</button>
+            </div>
+            <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>Reset the login password for the Admin (owner) or any Agent of this company.</p>
+            {usersLoading ? (
+              <LoadingBlock label="Loading users…" />
+            ) : companyUsers.length === 0 ? (
+              <p className="muted">No users found.</p>
+            ) : (
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <tbody>
+                  {companyUsers.map((u) => (
+                    <tr key={u.id} style={{ borderBottom: "1px solid #f4f6f7" }}>
+                      <td style={{ padding: "10px 6px" }}>
+                        <div style={{ fontWeight: 600 }}>{u.name} <span style={{ background: u.role === "Admin" ? "#e7f0ff" : "#eef1f2", color: u.role === "Admin" ? "#1877f2" : "#54656f", padding: "1px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, marginLeft: 6 }}>{u.role}</span></div>
+                        <div className="muted" style={{ fontSize: 12 }}>{u.email}</div>
+                      </td>
+                      <td style={{ padding: "10px 6px", textAlign: "right" }}>
+                        <button className="btn-mini" onClick={() => resetPassword(u)}>Reset password</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       )}
 

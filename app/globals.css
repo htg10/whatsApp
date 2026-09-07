@@ -1,7 +1,11 @@
 :root {
-  --green: #128c7e;
-  --green-dark: #075e54;
-  --green-light: #25d366;
+  /* Brand: dark teal (logo circle) + orange (logo wordmark). Token names keep
+     the historic --green-* keys so existing rules pick up the new palette. */
+  --green: #0e7c7b;        /* teal primary */
+  --green-dark: #0a5555;   /* deep teal — sidebar / hero start */
+  --green-light: #17b6a6;  /* teal light — gradient end / badges */
+  --accent: #f26f21;       /* orange — primary CTA */
+  --accent-dark: #d95e10;
   --bg: #f0f2f5;
   --card: #ffffff;
   --text: #111b21;
@@ -10,6 +14,23 @@
   --danger: #e02424;
   --radius: 14px;
 }
+
+/* Dark mode (toggled from the header). */
+:root[data-theme="dark"] {
+  --bg: #0f1a1a;
+  --card: #162222;
+  --text: #e6efee;
+  --muted: #93a7a4;
+  --border: #24403f;
+}
+:root[data-theme="dark"] body { background: var(--bg); color: var(--text); }
+:root[data-theme="dark"] .panel,
+:root[data-theme="dark"] .stat-card,
+:root[data-theme="dark"] .card { background: var(--card); border-color: var(--border); }
+:root[data-theme="dark"] .btn-mini { background: #1f3130; color: #d7ece9; border-color: #2c4a48; }
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] textarea,
+:root[data-theme="dark"] select { background: #162222; color: var(--text); border-color: var(--border); }
 
 * { box-sizing: border-box; }
 
@@ -105,6 +126,9 @@ a:hover { text-decoration: underline; }
 }
 .btn:hover { background: var(--green-dark); }
 .btn:disabled { opacity: .6; cursor: not-allowed; }
+/* Primary CTA uses the orange brand accent so it stands out on teal chrome. */
+.btn { background: var(--accent); }
+.btn:hover { background: var(--accent-dark); }
 
 .error {
   background: #fdecec;
