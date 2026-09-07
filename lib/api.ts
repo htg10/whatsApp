@@ -336,6 +336,10 @@ export const api = {
       request<{ invoices: InvoiceItem[]; meta: PaginationMeta }>("/billing/invoices", { token }),
     subscribe: (token: string, planId: string) =>
       request<{ subscription: SubscriptionItem2 }>("/billing/subscribe", { method: "POST", body: { plan_id: planId }, token }),
+    order: (token: string, planId: string) =>
+      request<RazorpayOrder>("/billing/order", { method: "POST", body: { plan_id: planId }, token }),
+    verify: (token: string, body: { plan_id: string; razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>
+      request<{ message: string; subscription: SubscriptionItem2 }>("/billing/verify", { method: "POST", body, token }),
   },
 
   team: {
@@ -869,6 +873,16 @@ export type PlanItem = {
   trial_days: number;
   features: string[];
   limits: Record<string, unknown>;
+};
+
+export type RazorpayOrder = {
+  free: boolean;
+  subscription?: SubscriptionItem2;
+  order_id?: string;
+  amount?: number;
+  currency?: string;
+  key_id?: string;
+  plan?: PlanItem;
 };
 
 export type SubscriptionItem2 = {

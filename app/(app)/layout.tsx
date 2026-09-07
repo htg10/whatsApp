@@ -20,6 +20,63 @@ function roleLabel(role: string): string {
   return ROLE_LABELS[role] ?? role;
 }
 
+function TopBar({ user }: { user: User }) {
+  const [dark, setDark] = useState(false);
+  const [fs, setFs] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+
+  useEffect(() => {
+    let saved: string | null = null;
+    try { saved = localStorage.getItem("theme"); } catch {}
+    const isDark = saved === "dark";
+    setDark(isDark);
+    document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
+    const onFs = () => setFs(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFs);
+    return () => document.removeEventListener("fullscreenchange", onFs);
+  }, []);
+
+  function toggleTheme() {
+    const next = !dark;
+    setDark(next);
+    document.documentElement.setAttribute("data-theme", next ? "dark" : "light");
+    try { localStorage.setItem("theme", next ? "dark" : "light"); } catch {}
+  }
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else document.documentElement.requestFullscreen().catch(() => {});
+  }
+
+  const initials = user.name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
+
+  return (
+    <div className="appbar">
+      <div className="appbar-title">{user.tenant?.company_name ?? user.tenant?.name ?? "PiziDesk"}</div>
+      <div className="appbar-actions">
+        <div style={{ position: "relative" }}>
+          <button className="appbar-btn" title="Notifications" onClick={() => setNotifOpen((v) => !v)}>🔔</button>
+          {notifOpen && (
+            <div className="appbar-pop" onMouseLeave={() => setNotifOpen(false)}>
+              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6 }}>Notifications</div>
+              <div className="muted" style={{ fontSize: 13 }}>You&apos;re all caught up — no new notifications.</div>
+            </div>
+          )}
+        </div>
+        <button className="appbar-btn" title={dark ? "Light mode" : "Dark mode"} onClick={toggleTheme}>{dark ? "☀️" : "🌙"}</button>
+        <button className="appbar-btn" title={fs ? "Exit full screen" : "Full screen"} onClick={toggleFullscreen}>{fs ? "🡼" : "⛶"}</button>
+        <div className="appbar-user">
+          <div className="appbar-avatar">{initials}</div>
+          <div style={{ lineHeight: 1.1 }}>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{user.name}</div>
+            <div className="muted" style={{ fontSize: 11 }}>{user.roles?.[0] ? roleLabel(user.roles[0]) : ""}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -88,7 +145,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </aside>
-        <main className="main">{children}</main>
+        <main className="main">
+          <TopBar user={user} />
+          {children}
+        </main>
       </div>
     </UserContext.Provider>
   );

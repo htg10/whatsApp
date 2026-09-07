@@ -56,19 +56,74 @@ export default function BillingPage() {
     setTimeout(() => setNotice(null), 3500);
   }
 
-  async function switchPlan(plan: PlanItem) {
+  function loadRazorpay(): Promise<boolean> {
+    return new Promise((resolve) => {
+      const w = window as unknown as { Razorpay?: unknown };
+      if (w.Razorpay) return resolve(true);
+      const s = document.createElement("script");
+      s.src = "https://checkout.razorpay.com/v1/checkout.js";
+      s.onload = () => resolve(true);
+      s.onerror = () => resolve(false);
+      document.body.appendChild(s);
+    });
+  }
+
+  async function buyPlan(plan: PlanItem) {
     const token = getToken();
     if (!token) return;
-    if (!confirm(`Switch to the ${plan.name} plan?`)) return;
     setSwitching(plan.id);
     setError(null);
     try {
-      const res = await api.billing.subscribe(token, plan.id);
-      setSubscription(res.subscription);
-      flash(`You're now on the ${plan.name} plan.`);
+      const order = await api.billing.order(token, plan.id);
+
+      // Free plan — assigned immediately, no checkout.
+      if (order.free) {
+        setSubscription(order.subscription ?? null);
+        flash(`You're now on the ${plan.name} plan.`);
+        await load();
+        setSwitching(null);
+        return;
+      }
+
+      const ready = await loadRazorpay();
+      if (!ready) {
+        setError("Could not load the payment gateway. Check your connection and try again.");
+        setSwitching(null);
+        return;
+      }
+
+      const RazorpayCtor = (window as unknown as { Razorpay: new (opts: unknown) => { open: () => void } }).Razorpay;
+      const rzp = new RazorpayCtor({
+        key: order.key_id,
+        amount: order.amount,
+        currency: order.currency,
+        order_id: order.order_id,
+        name: "PiziDesk",
+        description: `${plan.name} plan`,
+        prefill: { name: user.name, email: user.email },
+        theme: { color: "#0e7c7b" },
+        handler: async (resp: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+          try {
+            const v = await api.billing.verify(token, {
+              plan_id: plan.id,
+              razorpay_order_id: resp.razorpay_order_id,
+              razorpay_payment_id: resp.razorpay_payment_id,
+              razorpay_signature: resp.razorpay_signature,
+            });
+            setSubscription(v.subscription);
+            flash(v.message);
+            await load();
+          } catch (err) {
+            setError((err as ApiError).message);
+          } finally {
+            setSwitching(null);
+          }
+        },
+        modal: { ondismiss: () => setSwitching(null) },
+      });
+      rzp.open();
     } catch (err) {
       setError((err as ApiError).message);
-    } finally {
       setSwitching(null);
     }
   }
@@ -141,9 +196,9 @@ export default function BillingPage() {
                         className="btn"
                         style={{ width: "100%", marginTop: 10, opacity: isCurrent ? 0.6 : 1 }}
                         disabled={isCurrent || switching === p.id}
-                        onClick={() => switchPlan(p)}
+                        onClick={() => buyPlan(p)}
                       >
-                        {isCurrent ? "Current plan" : switching === p.id ? "Switching…" : "Choose plan"}
+                        {isCurrent ? "Current plan" : switching === p.id ? "Processing…" : p.price > 0 ? `Buy — ${p.price_display}` : "Choose plan"}
                       </button>
                     </div>
                   );
@@ -213,7 +268,7 @@ export default function BillingPage() {
           </div>
 
           <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
-            Online payments (card / UPI via Razorpay) are coming next. For now, plan changes are applied directly and wallet top-ups are handled by your account manager.
+            Payments are processed securely by Razorpay (card / UPI / netbanking). Your plan activates automatically once payment succeeds.
           </p>
         </>
       )}
