@@ -29,7 +29,8 @@ export default function DashboardPage() {
 
   const perms = user.permissions ?? [];
   const isAdmin = (user.roles ?? []).includes("tenant-owner") || user.is_super_admin;
-  const can = (p: string) => perms.includes(p);
+  // Super admin can do everything an Admin/Agent can, so treat every permission as granted.
+  const can = (p: string) => user.is_super_admin || perms.includes(p);
 
   useEffect(() => {
     const token = getToken();
@@ -69,8 +70,8 @@ export default function DashboardPage() {
         </>
       )}
 
-      {/* Quick actions (admins get more) */}
-      {!user.is_super_admin && (<>
+      {/* Workspace actions & stats — shown to Admins, Agents, and Super Admin. */}
+      {(<>
       <div className="quick-actions">
         {can("conversations.view") && <Link href="/inbox" className="quick-action">✉ Open Inbox</Link>}
         {can("campaigns.view") && <Link href="/campaigns" className="quick-action">📣 New Campaign</Link>}

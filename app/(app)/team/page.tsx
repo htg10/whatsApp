@@ -226,15 +226,25 @@ export default function TeamPage() {
                   </div>
                 </>
               )}
-              <div className="field">
-                <label>Role</label>
-                <select value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}>
-                  {roles.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-                </select>
-                <span className="muted" style={{ fontSize: 12 }}>
-                  {form.role === "admin" ? "Admins get full access to everything in the workspace." : "Agents see only the features you tick below."}
-                </span>
-              </div>
+              {roles.length > 1 ? (
+                <div className="field">
+                  <label>Role</label>
+                  <select value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}>
+                    {roles.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                  </select>
+                  <span className="muted" style={{ fontSize: 12 }}>
+                    {form.role === "admin" ? "Admins get full access to everything in the workspace." : "Agents see only the features you tick below."}
+                  </span>
+                </div>
+              ) : (
+                <div className="field">
+                  <label>Role</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ background: "#eef1f2", color: "#54656f", padding: "4px 12px", borderRadius: 999, fontSize: 13, fontWeight: 700 }}>Agent</span>
+                    <span className="muted" style={{ fontSize: 12 }}>Agents see only the features you tick below.</span>
+                  </div>
+                </div>
+              )}
 
               {form.role === "agent" && (
                 <div className="field">

@@ -33,9 +33,16 @@ export const SUPER_ADMIN_NAV: NavItem[] = [
 
 type NavUser = { is_super_admin?: boolean; permissions?: string[] };
 
-/** The nav appropriate for this user. Super admins get the platform nav. */
+/**
+ * The nav appropriate for this user. Super admins get the platform nav
+ * (Companies, Plans) PLUS every workspace feature — they can do everything an
+ * Admin or Agent can. Everyone else gets a permission-filtered feature nav.
+ */
 export function navFor(user: NavUser): NavItem[] {
-  if (user.is_super_admin) return SUPER_ADMIN_NAV;
+  if (user.is_super_admin) {
+    const featureItems = NAV.filter((item) => item.href !== "/dashboard");
+    return [...SUPER_ADMIN_NAV, ...featureItems];
+  }
   const perms = new Set(user.permissions ?? []);
   return NAV.filter((item) => !item.perm || perms.has(item.perm));
 }
