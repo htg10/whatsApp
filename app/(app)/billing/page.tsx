@@ -6,8 +6,18 @@ import { PageHeader } from "@/components/PageHeader";
 import { LoadingBlock } from "@/components/Preloader";
 import { getToken } from "@/lib/auth";
 import {
-  api, ApiError, PlanItem, SubscriptionItem2, WalletInfo, WalletTxn, InvoiceItem,
+  api, ApiError, PlanItem, SubscriptionItem2, InvoiceItem,
 } from "@/lib/api";
+
+const LIMIT_LABELS: Record<string, string> = {
+  max_agents: "Agents", max_contacts: "Contacts", max_campaigns: "Campaigns",
+  max_chatbots: "Chatbots", max_templates: "Templates",
+};
+const FEATURE_LABELS: Record<string, string> = {
+  reports: "Reports", advanced_reports: "Advanced reports", export: "Export",
+  social: "Social publishing", chatbot: "Chatbot", automations: "Automations", api_access: "API access",
+};
+const showLimit = (v: number | undefined) => (v === undefined || v < 0 ? "Unlimited" : v.toLocaleString("en-IN"));
 
 export default function BillingPage() {
   const user = useUser();
@@ -16,9 +26,7 @@ export default function BillingPage() {
   const [notice, setNotice] = useState<string | null>(null);
 
   const [subscription, setSubscription] = useState<SubscriptionItem2 | null>(null);
-  const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [plans, setPlans] = useState<PlanItem[]>([]);
-  const [txns, setTxns] = useState<WalletTxn[]>([]);
   const [invoices, setInvoices] = useState<InvoiceItem[]>([]);
   const [switching, setSwitching] = useState<string | null>(null);
 
@@ -27,20 +35,16 @@ export default function BillingPage() {
     if (!token) return;
     setLoading(true);
     try {
-      const [ov, pl, wl, inv] = await Promise.all([
+      const [ov, pl, inv] = await Promise.all([
         api.billing.overview(token).catch(() => ({
           subscription: null as SubscriptionItem2 | null,
-          wallet: null as unknown as WalletInfo,
           tenant: { status: null, trial_ends_at: null },
         })),
         api.billing.plans(token).catch(() => ({ plans: [] as PlanItem[] })),
-        api.billing.wallet(token).catch(() => ({ wallet: null as WalletInfo | null, transactions: [] as WalletTxn[] })),
         api.billing.invoices(token).catch(() => ({ invoices: [] as InvoiceItem[], meta: { current_page: 1, last_page: 1, total: 0 } })),
       ]);
       setSubscription(ov.subscription);
-      setWallet(ov.wallet ?? wl.wallet);
       setPlans(pl.plans);
-      setTxns(wl.transactions);
       setInvoices(inv.invoices);
     } catch (err) {
       setError((err as ApiError).message);
@@ -133,7 +137,7 @@ export default function BillingPage() {
 
   return (
     <>
-      <PageHeader title="Billing" subtitle="Plan, wallet & invoices" />
+      <PageHeader title="Billing" subtitle="Your plan & invoices" />
 
       {error && <div className="error">{error}</div>}
       {notice && <div className="panel" style={{ background: "#e7f7ef", color: "#0a7d47", marginBottom: 16 }}>{notice}</div>}
@@ -151,10 +155,6 @@ export default function BillingPage() {
             <div className="stat">
               <div className="label">Status</div>
               <div className="value" style={{ fontSize: 20, textTransform: "capitalize" }}>{subscription?.status ?? user.tenant?.status ?? "—"}</div>
-            </div>
-            <div className="stat">
-              <div className="label">Wallet balance</div>
-              <div className="value" style={{ fontSize: 20, color: "#0a7d47" }}>{wallet?.balance ?? "₹0.00"}</div>
             </div>
             <div className="stat">
               <div className="label">Renews / ends</div>
@@ -187,11 +187,29 @@ export default function BillingPage() {
                         <span className="muted" style={{ fontSize: 13, fontWeight: 400 }}> / {p.billing_period === "yearly" ? "yr" : "mo"}</span>
                       </div>
                       {p.description && <p className="muted" style={{ fontSize: 13, margin: "8px 0" }}>{p.description}</p>}
-                      {p.features.length > 0 && (
-                        <ul style={{ margin: "10px 0", paddingLeft: 18, fontSize: 13, color: "#54656f" }}>
-                          {p.features.slice(0, 6).map((f, i) => <li key={i} style={{ marginBottom: 3 }}>{f}</li>)}
-                        </ul>
-                      )}
+
+                      {/* Numeric limits */}
+                      <div style={{ display: "grid", gap: 4, fontSize: 13, color: "#54656f", margin: "12px 0 10px", paddingTop: 10, borderTop: "1px solid var(--border)" }}>
+                        {Object.keys(LIMIT_LABELS).map((k) => (
+                          <div key={k} style={{ display: "flex", justifyContent: "space-between" }}>
+                            <span>{LIMIT_LABELS[k]}</span>
+                            <strong>{showLimit(p.limits?.[k])}</strong>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Enabled features */}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 12 }}>
+                        {Object.keys(FEATURE_LABELS).filter((k) => p.features?.[k]).map((k) => (
+                          <span key={k} style={{ background: "#eafaf7", color: "#0a7d47", padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 600 }}>
+                            ✓ {FEATURE_LABELS[k]}
+                          </span>
+                        ))}
+                        {Object.keys(FEATURE_LABELS).filter((k) => p.features?.[k]).length === 0 && (
+                          <span className="muted" style={{ fontSize: 12 }}>Core features included</span>
+                        )}
+                      </div>
+
                       <button
                         className="btn"
                         style={{ width: "100%", marginTop: 10, opacity: isCurrent ? 0.6 : 1 }}
@@ -204,37 +222,6 @@ export default function BillingPage() {
                   );
                 })}
               </div>
-            )}
-          </div>
-
-          {/* Wallet ledger */}
-          <div className="panel">
-            <h2 style={{ marginTop: 0 }}>Wallet activity</h2>
-            {txns.length === 0 ? (
-              <p className="muted">No wallet transactions yet.</p>
-            ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr style={{ textAlign: "left", fontSize: 12, color: "#667781", borderBottom: "1px solid #eef1f2" }}>
-                    <th style={{ padding: "8px 6px" }}>Date</th>
-                    <th style={{ padding: "8px 6px" }}>Type</th>
-                    <th style={{ padding: "8px 6px" }}>Description</th>
-                    <th style={{ padding: "8px 6px", textAlign: "right" }}>Amount</th>
-                    <th style={{ padding: "8px 6px", textAlign: "right" }}>Balance</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {txns.map((t) => (
-                    <tr key={t.id} style={{ borderBottom: "1px solid #f6f7f8" }}>
-                      <td style={{ padding: "8px 6px", fontSize: 13 }}>{fmtDate(t.created_at)}</td>
-                      <td style={{ padding: "8px 6px", fontSize: 13, textTransform: "capitalize" }}>{t.type}</td>
-                      <td style={{ padding: "8px 6px", fontSize: 13 }}>{t.description ?? "—"}</td>
-                      <td style={{ padding: "8px 6px", textAlign: "right", fontVariantNumeric: "tabular-nums", color: t.amount_minor < 0 ? "#c53030" : "#0a7d47" }}>{t.amount}</td>
-                      <td style={{ padding: "8px 6px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{t.balance_after}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             )}
           </div>
 

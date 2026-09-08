@@ -871,8 +871,8 @@ export type PlanItem = {
   price_display: string;
   currency: string;
   trial_days: number;
-  features: string[];
-  limits: Record<string, unknown>;
+  features: Record<string, boolean>;
+  limits: Record<string, number>;
 };
 
 export type RazorpayOrder = {
