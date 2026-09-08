@@ -41,11 +41,11 @@ type NavUser = { is_super_admin?: boolean; permissions?: string[]; plan_features
  * Admin or Agent can. Everyone else gets a permission-filtered feature nav.
  */
 export function navFor(user: NavUser): NavItem[] {
+  // Super admin is a platform account (no tenant), so it only gets the platform
+  // tools — Dashboard, Companies, Plans. Tenant feature pages would be empty for
+  // it, so they're intentionally left out.
   if (user.is_super_admin) {
-    // Everything except Dashboard (already in the platform nav) and Billing
-    // (billing is a per-tenant subscription — the platform account has none).
-    const featureItems = NAV.filter((item) => item.href !== "/dashboard" && item.href !== "/billing");
-    return [...SUPER_ADMIN_NAV, ...featureItems];
+    return SUPER_ADMIN_NAV;
   }
   const perms = new Set(user.permissions ?? []);
   // plan_features null/undefined = no plan → no feature gating (all available).

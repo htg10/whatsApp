@@ -70,8 +70,8 @@ export default function DashboardPage() {
         </>
       )}
 
-      {/* Workspace actions & stats — shown to Admins, Agents, and Super Admin. */}
-      {(<>
+      {/* Workspace actions & stats — for Admins and Agents (not the platform super admin). */}
+      {!user.is_super_admin && (<>
       <div className="quick-actions">
         {can("conversations.view") && <Link href="/inbox" className="quick-action">✉ Open Inbox</Link>}
         {can("campaigns.view") && <Link href="/campaigns" className="quick-action">📣 New Campaign</Link>}
