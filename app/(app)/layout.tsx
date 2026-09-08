@@ -115,8 +115,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <UserContext.Provider value={user}>
       <div className="shell">
         <aside className="sidebar">
-          <div className="logo" style={{ display: "flex", justifyContent: "center", padding: "4px 0 12px" }}>
-            <img src="/logo.png" alt="PiziDesk" style={{ width: "100%", maxWidth: 180, height: "auto", borderRadius: 8 }} />
+          <div className="logo" style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
+            <div style={{ background: "#fff", borderRadius: 12, padding: "12px 16px", width: "100%", display: "flex", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,.12)" }}>
+              <img src="/logo.png" alt="PiziDesk" style={{ width: "100%", maxWidth: 150, height: "auto", display: "block" }} />
+            </div>
           </div>
           <nav>
             {navFor(user).map((item) => {
