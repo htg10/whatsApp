@@ -1,12 +1,12 @@
 /**
  * Branded full-screen preloader — shown while the app shell boots (session
- * fetch) and on route transitions. Uses the PiziDesk logo so slow loads still
+ * fetch) and on route transitions. Uses the Heltog SocialFlow logo so slow loads still
  * feel on-brand instead of a blank/plain "Loading…" screen.
  */
 export function Preloader({ label = "Loading…" }: { label?: string }) {
   return (
     <div className="preloader">
-      <img src="/logo.png" alt="PiziDesk" className="preloader-logo" />
+      <img src="/logo.png" alt="Heltog SocialFlow" className="preloader-logo" />
       <div className="spinner spinner-lg" />
       <div className="preloader-text">{label}</div>
     </div>

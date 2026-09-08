@@ -52,7 +52,7 @@ function TopBar({ user }: { user: User }) {
 
   return (
     <div className="appbar">
-      <div className="appbar-title">{user.tenant?.company_name ?? user.tenant?.name ?? "PiziDesk"}</div>
+      <div className="appbar-title">{user.tenant?.company_name ?? user.tenant?.name ?? "Heltog SocialFlow"}</div>
       <div className="appbar-actions">
         <div style={{ position: "relative" }}>
           <button className="appbar-btn" title="Notifications" onClick={() => setNotifOpen((v) => !v)}>🔔</button>
@@ -117,7 +117,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <aside className="sidebar">
           <div className="logo" style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
             <div style={{ background: "#fff", borderRadius: 12, padding: "12px 16px", width: "100%", display: "flex", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,.12)" }}>
-              <img src="/logo.png" alt="PiziDesk" style={{ width: "100%", maxWidth: 150, height: "auto", display: "block" }} />
+              <img src="/logo.png" alt="Heltog SocialFlow" style={{ width: "100%", maxWidth: 150, height: "auto", display: "block" }} />
             </div>
           </div>
           <nav>
@@ -143,13 +143,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <div style={{ fontSize: 12, color: "#9fc0b8", marginBottom: 10 }}>{user.email}</div>
             <button className="btn-ghost" onClick={logout}>Log out</button>
             <div style={{ marginTop: 16, fontSize: 11, color: "#7fa89f", lineHeight: 1.5 }}>
-              © {new Date().getFullYear()} Pizi India Pvt Ltd
+              © {new Date().getFullYear()} Heltog Technologies Pvt Ltd
             </div>
           </div>
         </aside>
         <main className="main">
           <TopBar user={user} />
-          {children}
+          <div className="main-content">{children}</div>
         </main>
       </div>
     </UserContext.Provider>

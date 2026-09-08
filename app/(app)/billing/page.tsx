@@ -98,7 +98,7 @@ export default function BillingPage() {
         amount: order.amount,
         currency: order.currency,
         order_id: order.order_id,
-        name: "PiziDesk",
+        name: "Heltog SocialFlow",
         description: `${plan.name} plan`,
         prefill: { name: user.name, email: user.email },
         theme: { color: "#0e7c7b" },

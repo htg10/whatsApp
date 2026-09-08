@@ -64,7 +64,7 @@ export default function DashboardPage() {
             <Link href="/companies" className="quick-action">🏢 Manage Companies</Link>
           </div>
           <div className="panel" style={{ background: "#fff8e6", borderColor: "#f5e2a3" }}>
-            You are the platform <b>Super Admin</b>. Use <b>Companies</b> to create and manage every workspace on PiziDesk.
+            You are the platform <b>Super Admin</b>. Use <b>Companies</b> to create and manage every workspace on Heltog SocialFlow.
             Each company gets an owner (Admin) who can then add their own agents.
           </div>
         </>

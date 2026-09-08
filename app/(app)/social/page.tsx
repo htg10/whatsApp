@@ -183,8 +183,8 @@ export default function SocialPage() {
     if (!token) return;
     const igDone = (p.results?.instagram?.status) === "published";
     const msg = igDone
-      ? "Delete this post?\n\n• Removed from PiziDesk\n• Deleted from Facebook (if it was posted there)\n• Instagram: cannot be deleted via API — you'll need to remove it in the Instagram app yourself."
-      : "Delete this post? It will be removed from PiziDesk (and from Facebook if it was published there).";
+      ? "Delete this post?\n\n• Removed from Heltog SocialFlow\n• Deleted from Facebook (if it was posted there)\n• Instagram: cannot be deleted via API — you'll need to remove it in the Instagram app yourself."
+      : "Delete this post? It will be removed from Heltog SocialFlow (and from Facebook if it was published there).";
     if (!confirm(msg)) return;
     try {
       const res = await api.social.deletePost(token, p.id);
@@ -225,7 +225,7 @@ export default function SocialPage() {
     <div>
       <PageHeader
         title="Social"
-        subtitle="Publish to your Facebook Page and Instagram from PiziDesk."
+        subtitle="Publish to your Facebook Page and Instagram from Heltog SocialFlow."
         action={connection && canConnect ? <button className="btn-mini" onClick={disconnect}>Disconnect</button> : undefined}
       />
 

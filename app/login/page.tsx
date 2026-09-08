@@ -51,7 +51,7 @@ export default function LoginPage() {
     <div className="auth-wrap">
       <div className="card">
         <div className="brand" style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
-          <img src="/logo.png" alt="PiziDesk" style={{ width: "100%", maxWidth: 220, height: "auto", borderRadius: 10 }} />
+          <img src="/logo.png" alt="Heltog SocialFlow" style={{ width: "100%", maxWidth: 220, height: "auto", borderRadius: 10 }} />
         </div>
         <p className="subtitle" style={{ textAlign: "center" }}>Sign in to your workspace</p>
 
@@ -81,7 +81,7 @@ export default function LoginPage() {
         </div>
       </div>
       <div style={{ marginTop: 18, fontSize: 12, color: "var(--muted)", textAlign: "center" }}>
-        © {new Date().getFullYear()} Pizi India Pvt Ltd
+        © {new Date().getFullYear()} Heltog Technologies Pvt Ltd
       </div>
     </div>
   );

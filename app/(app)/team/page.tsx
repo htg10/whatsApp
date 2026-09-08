@@ -8,7 +8,8 @@ import { PageHeader } from "@/components/PageHeader";
 import { LoadingBlock } from "@/components/Preloader";
 
 type FormState = { name: string; email: string; password: string; role: string; features: string[] };
-const EMPTY: FormState = { name: "", email: "", password: "", role: "agent", features: [] };
+// New agents start with the most common customer-facing tools ticked.
+const EMPTY: FormState = { name: "", email: "", password: "", role: "agent", features: ["inbox", "contacts"] };
 
 export default function TeamPage() {
   const me = useUser();
