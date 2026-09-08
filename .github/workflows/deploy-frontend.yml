@@ -57,8 +57,17 @@ jobs:
           set ftp:ssl-force true
           set ftp:ssl-protect-data true
           set ssl:verify-certificate no
-          set net:max-retries 3
-          set net:timeout 25
-          mirror -R --only-newer --parallel=4 --verbose ./out/ "$FTP_SERVER_DIR"
+          set net:max-retries 5
+          set net:timeout 30
+          set mirror:parallel-transfer-count 1
+          set mirror:use-pget-n 1
+          # Upload the WHOLE build every time (NOT --only-newer): --only-newer can
+          # skip freshly-built chunks on timestamp/parallel hiccups, leaving the new
+          # HTML pointing at chunks that were never uploaded -> 404 / ChunkLoadError.
+          # Still no --delete, so previously-deployed chunks stay for cached HTML.
+          # _next/static is uploaded FIRST so the chunks exist before the HTML that
+          # references them goes live.
+          mirror -R --verbose ./out/_next/ "$FTP_SERVER_DIR/_next"
+          mirror -R --verbose ./out/ "$FTP_SERVER_DIR"
           bye
           EOF
