@@ -313,6 +313,8 @@ export const api = {
   agents: {
     list: (token: string) =>
       request<{ agents: AgentItem[] }>("/agents", { token }),
+    assignable: (token: string) =>
+      request<{ agents: { id: string; name: string; is_me: boolean }[] }>("/agents/assignable", { token }),
     get: (token: string, id: string) =>
       request<{ agent: AgentDetail }>(`/agents/${id}`, { token }),
     assign: (token: string, body: { conversation_id: string; agent_id: string }) =>

@@ -440,6 +440,7 @@ a:hover { text-decoration: underline; }
 .chat-header .phone { color: var(--muted); font-size: 13px; }
 .chat-header .window-tag { font-size: 11px; padding: 2px 8px; border-radius: 999px; margin-left: auto; }
 .chat-header .window-open { background: #e7f7ef; color: #0a7d47; }
+.assign-item:hover { background: #f0f5f4; }
 .chat-header .window-closed { background: #fdecec; color: var(--danger); }
 
 .message-list { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column-reverse; gap: 4px; background: #efeae2; }

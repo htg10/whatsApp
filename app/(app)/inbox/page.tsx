@@ -127,6 +127,11 @@ export default function InboxPage() {
   const [agentFilter, setAgentFilter] = useState<string>("");
   const [stickyOnly, setStickyOnly] = useState(false);
   const [sticky, setSticky] = useState<Set<string>>(new Set());
+
+  // Chat transfer / assignment
+  const [assignableAgents, setAssignableAgents] = useState<{ id: string; name: string; is_me: boolean }[]>([]);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assigning, setAssigning] = useState(false);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [showAttach, setShowAttach] = useState(false);
@@ -205,6 +210,13 @@ export default function InboxPage() {
     pollRef.current = setInterval(loadConversations, 15000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [loadConversations]);
+
+  // Load the team roster once — used by the chat-transfer picker.
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    api.agents.assignable(token).then((r) => setAssignableAgents(r.agents)).catch(() => {});
+  }, []);
 
   // Load approved templates once — used to re-open a closed 24h window.
   useEffect(() => {
@@ -381,6 +393,25 @@ export default function InboxPage() {
       setError((err as ApiError).message);
     } finally {
       setSendingTpl(false);
+    }
+  }
+
+  // Transfer / assign the active chat to a teammate (or unassign).
+  async function transferChat(agentId: string | null) {
+    const token = getToken();
+    if (!token || !activeId) return;
+    setAssigning(true);
+    setError(null);
+    try {
+      if (agentId) await api.agents.assign(token, { conversation_id: activeId, agent_id: agentId });
+      else await api.agents.unassign(token, { conversation_id: activeId });
+      setAssignOpen(false);
+      await loadConversations();
+      showToast(agentId ? "Chat transferred." : "Chat unassigned.");
+    } catch (err) {
+      setError((err as ApiError).message);
+    } finally {
+      setAssigning(false);
     }
   }
 
@@ -772,9 +803,41 @@ export default function InboxPage() {
                 <div className="name">{activeConv.contact?.name || activeConv.contact?.phone || "Unknown"}</div>
                 <div className="phone">{activeConv.contact?.wa_id ? `+${activeConv.contact.wa_id}` : ""}</div>
               </div>
-              <span className={`window-tag ${activeConv.window_open ? "window-open" : "window-closed"}`}>
-                {activeConv.window_open ? "Window open" : "Window closed"}
-              </span>
+
+              <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+                {/* Assign / transfer chat */}
+                <div style={{ position: "relative" }}>
+                  <button className="btn-mini" disabled={assigning} onClick={() => setAssignOpen((v) => !v)} title="Transfer this chat to a teammate">
+                    {activeConv.assigned_agent ? `👤 ${activeConv.assigned_agent.name}` : "Assign agent"} ▾
+                  </button>
+                  {assignOpen && (
+                    <div onMouseLeave={() => setAssignOpen(false)}
+                      style={{ position: "absolute", right: 0, top: 34, width: 230, background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "0 12px 32px rgba(0,0,0,.16)", zIndex: 60, padding: 6 }}>
+                      <div style={{ fontSize: 11, color: "var(--muted)", padding: "6px 8px", textTransform: "uppercase", fontWeight: 700 }}>Transfer chat to</div>
+                      {assignableAgents.length === 0 && <div className="muted" style={{ fontSize: 13, padding: "6px 8px" }}>No teammates found.</div>}
+                      {assignableAgents.map((a) => {
+                        const current = activeConv.assigned_agent?.id === a.id;
+                        return (
+                          <div key={a.id} className="assign-item" onClick={() => !current && transferChat(a.id)}
+                            style={{ padding: "8px 10px", borderRadius: 8, cursor: current ? "default" : "pointer", fontSize: 13, display: "flex", justifyContent: "space-between", alignItems: "center", opacity: current ? 0.7 : 1 }}>
+                            <span>{a.name}{a.is_me ? " (you)" : ""}</span>
+                            {current && <span style={{ color: "#0a7d47", fontSize: 12 }}>✓ current</span>}
+                          </div>
+                        );
+                      })}
+                      {activeConv.assigned_agent && (
+                        <>
+                          <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
+                          <div className="assign-item" onClick={() => transferChat(null)} style={{ padding: "8px 10px", borderRadius: 8, cursor: "pointer", fontSize: 13, color: "#c53030" }}>Unassign</div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <span className={`window-tag ${activeConv.window_open ? "window-open" : "window-closed"}`} style={{ marginLeft: 0 }}>
+                  {activeConv.window_open ? "Window open" : "Window closed"}
+                </span>
+              </div>
             </div>
 
             {error && <div className="error" style={{ margin: "8px 16px 0", borderRadius: 8 }}>{error}</div>}
