@@ -115,10 +115,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <UserContext.Provider value={user}>
       <div className="shell">
         <aside className="sidebar">
-          <div className="logo" style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
-            <div style={{ background: "#fff", borderRadius: 12, padding: "12px 16px", width: "100%", display: "flex", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,.12)" }}>
-              <img src="/logo.png" alt="Heltog SocialFlow" style={{ width: "100%", maxWidth: 150, height: "auto", display: "block" }} />
-            </div>
+          <div className="logo" style={{ margin: "-20px -14px 18px", padding: "16px", background: "#fff", display: "flex", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,.12)" }}>
+            <img src="/logo.png" alt="Heltog SocialFlow" style={{ width: "100%", maxWidth: 180, height: "auto", display: "block" }} />
           </div>
           <nav>
             {navFor(user).map((item) => {
