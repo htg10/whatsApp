@@ -259,7 +259,8 @@ export default function CampaignsPage() {
       setBulkNumbers("");
       loadBulkSends();
     } catch (err) {
-      setError((err as ApiError).message);
+      const e = err as ApiError;
+      setError(e.errors ? Object.values(e.errors).flat().join(". ") : e.message);
     } finally {
       setSubmitting(false);
     }
