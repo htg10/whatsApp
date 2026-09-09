@@ -830,6 +830,8 @@ export type ChatbotItem = {
   is_active: boolean;
   welcome_message: string | null;
   fallback_message: string | null;
+  ai_enabled?: boolean;
+  ai_instructions?: string | null;
   phone_number?: { id: string; display_phone_number: string } | null;
   rules_count?: number;
   created_at: string | null;

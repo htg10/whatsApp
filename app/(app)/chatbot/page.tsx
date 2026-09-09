@@ -46,6 +46,30 @@ export default function ChatbotPage() {
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [savingRule, setSavingRule] = useState(false);
 
+  // AI settings (per bot)
+  const [ai, setAi] = useState({ enabled: false, instructions: "" });
+  const [aiSaving, setAiSaving] = useState(false);
+
+  useEffect(() => {
+    if (bot) setAi({ enabled: !!bot.ai_enabled, instructions: bot.ai_instructions ?? "" });
+  }, [bot]);
+
+  async function saveAi() {
+    const token = getToken();
+    if (!token || !bot) return;
+    setAiSaving(true);
+    setError(null);
+    try {
+      const res = await api.chatbot.update(token, bot.id, { ai_enabled: ai.enabled, ai_instructions: ai.instructions || null });
+      setBot((b) => (b ? { ...b, ai_enabled: res.chatbot.ai_enabled, ai_instructions: res.chatbot.ai_instructions } : b));
+      flash("AI settings saved.");
+    } catch (err) {
+      setError((err as ApiError).message);
+    } finally {
+      setAiSaving(false);
+    }
+  }
+
   const loadBots = useCallback(async () => {
     const token = getToken();
     if (!token) return;
@@ -301,6 +325,36 @@ export default function ChatbotPage() {
       />
 
       {error && <div className="error">{error}</div>}
+      {notice && <div className="panel" style={{ background: "#e7f7ef", color: "#0a7d47", marginBottom: 16 }}>{notice}</div>}
+
+      {/* AI assistant */}
+      <div className="panel" style={{ marginBottom: 16, borderLeft: "3px solid var(--accent)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+          <div>
+            <h3 style={{ margin: 0 }}>🤖 AI Assistant <span className="muted" style={{ fontSize: 12, fontWeight: 400 }}>(answers when no keyword rule matches)</span></h3>
+            <p className="muted" style={{ fontSize: 13, margin: "4px 0 0" }}>Let AI reply to customers using your business info below — in the customer&apos;s own language.</p>
+          </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
+            <input type="checkbox" checked={ai.enabled} onChange={(e) => setAi((a) => ({ ...a, enabled: e.target.checked }))} />
+            AI answers {ai.enabled ? "ON" : "OFF"}
+          </label>
+        </div>
+        <div className="field" style={{ marginTop: 12, marginBottom: 0 }}>
+          <label>Business info &amp; instructions <span className="muted">(what the AI should know & how to answer)</span></label>
+          <textarea
+            value={ai.instructions}
+            onChange={(e) => setAi((a) => ({ ...a, instructions: e.target.value }))}
+            rows={6}
+            maxLength={8000}
+            placeholder={"e.g.\nWe are Heltog Store, open Mon–Sat 10am–8pm.\nWe sell mobile accessories; delivery across India in 3–5 days.\nReturns accepted within 7 days.\nFor prices, ask the customer which product they mean.\nIf someone wants to place an order, collect name, address and product."}
+            style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, fontSize: 14, fontFamily: "inherit", resize: "vertical" }}
+          />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
+            <span className="muted" style={{ fontSize: 12 }}>{ai.instructions.length}/8000 · Needs the ANTHROPIC_API_KEY to be configured on the server.</span>
+            <button className="btn" style={{ width: "auto", padding: "9px 18px" }} disabled={aiSaving} onClick={saveAi}>{aiSaving ? "Saving…" : "Save AI settings"}</button>
+          </div>
+        </div>
+      </div>
 
       <div className="grid" style={{ gridTemplateColumns: "1fr 360px", gap: 16, alignItems: "start" }}>
         {/* Rules list */}
