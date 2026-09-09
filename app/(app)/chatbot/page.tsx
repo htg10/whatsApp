@@ -350,7 +350,7 @@ export default function ChatbotPage() {
             style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, fontSize: 14, fontFamily: "inherit", resize: "vertical" }}
           />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
-            <span className="muted" style={{ fontSize: 12 }}>{ai.instructions.length}/8000 · Needs the ANTHROPIC_API_KEY to be configured on the server.</span>
+            <span className="muted" style={{ fontSize: 12 }}>{ai.instructions.length}/8000 · Needs an AI API key (Gemini or Claude) configured on the server.</span>
             <button className="btn" style={{ width: "auto", padding: "9px 18px" }} disabled={aiSaving} onClick={saveAi}>{aiSaving ? "Saving…" : "Save AI settings"}</button>
           </div>
         </div>
