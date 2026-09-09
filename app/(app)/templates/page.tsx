@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, ApiError, TemplateItem, TemplateButton, TemplateCreateBody } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
+import { UpgradePrompt, planAllows } from "@/components/PlanGate";
+import { useUser } from "@/lib/user-context";
 
 const STATUS_COLORS: Record<string, { bg: string; fg: string }> = {
   APPROVED: { bg: "#e7f7ef", fg: "#0a7d47" },
@@ -72,6 +74,7 @@ function varCount(body: string): number {
 }
 
 export default function TemplatesPage() {
+  const gateUser = useUser();
   const [templates, setTemplates] = useState<TemplateItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -213,6 +216,8 @@ export default function TemplatesPage() {
       setSaving(false);
     }
   }
+
+  if (!planAllows(gateUser.plan_limits, "max_templates")) return <UpgradePrompt title="Templates" feature="Templates" />;
 
   return (
     <>

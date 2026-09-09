@@ -6,6 +6,8 @@ import {
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
+import { UpgradePrompt, planAllows } from "@/components/PlanGate";
+import { useUser } from "@/lib/user-context";
 
 const MATCH_TYPES = [
   { value: "contains", label: "Contains" },
@@ -27,6 +29,7 @@ const EMPTY_RULE = {
 };
 
 export default function ChatbotPage() {
+  const gateUser = useUser();
   const [view, setView] = useState<View>("list");
   const [bots, setBots] = useState<ChatbotItem[]>([]);
   const [numbers, setNumbers] = useState<WaNumber[]>([]);
@@ -219,6 +222,8 @@ export default function ChatbotPage() {
       setError((err as ApiError).message);
     }
   }
+
+  if (!planAllows(gateUser.plan_limits, "max_chatbots")) return <UpgradePrompt title="Chatbot" feature="Chatbot" />;
 
   // ---------- List view ----------
   if (view === "list") {

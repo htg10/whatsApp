@@ -4,10 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import { api, ApiError, AgentItem, AgentDetail, AgentStat } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
+import { UpgradePrompt, planAllows } from "@/components/PlanGate";
+import { useUser } from "@/lib/user-context";
 
 type Tab = "roster" | "workload";
 
 export default function AgentsPage() {
+  const gateUser = useUser();
   const [tab, setTab] = useState<Tab>("roster");
   const [agents, setAgents] = useState<AgentItem[]>([]);
   const [stats, setStats] = useState<AgentStat[]>([]);
@@ -66,6 +69,8 @@ export default function AgentsPage() {
 
   const totalActive = agents.reduce((s, a) => s + a.active_conversations_count, 0);
   const totalHandled = agents.reduce((s, a) => s + a.total_handled, 0);
+
+  if (!planAllows(gateUser.plan_limits, "max_agents")) return <UpgradePrompt title="Agents" feature="Agents" />;
 
   return (
     <div>

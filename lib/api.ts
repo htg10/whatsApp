@@ -543,6 +543,8 @@ export type User = {
   permissions: string[];
   /** Enabled plan feature keys; null = no plan / super admin (no gating). */
   plan_features: string[] | null;
+  /** Numeric plan limits (key => int, or null = unlimited). 0 = blocked. null map = no gating. */
+  plan_limits: Record<string, number | null> | null;
   tenant: Tenant | null;
   last_login_at: string | null;
 };
