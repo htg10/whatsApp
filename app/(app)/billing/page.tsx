@@ -6,8 +6,9 @@ import { PageHeader } from "@/components/PageHeader";
 import { LoadingBlock } from "@/components/Preloader";
 import { getToken } from "@/lib/auth";
 import {
-  api, ApiError, PlanItem, SubscriptionItem2, InvoiceItem,
+  api, ApiError, PlanItem, SubscriptionItem2, InvoiceItem, BillingDetails,
 } from "@/lib/api";
+import { renderInvoiceHtml, printInvoice } from "@/components/invoice";
 
 const LIMIT_LABELS: Record<string, string> = {
   max_agents: "Agents", max_contacts: "Contacts", max_campaigns: "Campaigns",
@@ -29,6 +30,12 @@ export default function BillingPage() {
   const [plans, setPlans] = useState<PlanItem[]>([]);
   const [invoices, setInvoices] = useState<InvoiceItem[]>([]);
   const [switching, setSwitching] = useState<string | null>(null);
+  const [gstRate, setGstRate] = useState(18);
+
+  // Billing-details step before payment
+  const [billTarget, setBillTarget] = useState<PlanItem | null>(null);
+  const [billForm, setBillForm] = useState<BillingDetails>({ name: "", email: "", phone: "", address: "", gstin: "" });
+  const [viewInvoice, setViewInvoice] = useState<InvoiceItem | null>(null);
 
   const load = useCallback(async () => {
     const token = getToken();
@@ -40,11 +47,12 @@ export default function BillingPage() {
           subscription: null as SubscriptionItem2 | null,
           tenant: { status: null, trial_ends_at: null },
         })),
-        api.billing.plans(token).catch(() => ({ plans: [] as PlanItem[] })),
+        api.billing.plans(token).catch(() => ({ plans: [] as PlanItem[], gst_rate: 18 })),
         api.billing.invoices(token).catch(() => ({ invoices: [] as InvoiceItem[], meta: { current_page: 1, last_page: 1, total: 0 } })),
       ]);
       setSubscription(ov.subscription);
       setPlans(pl.plans);
+      setGstRate(pl.gst_rate ?? 18);
       setInvoices(inv.invoices);
     } catch (err) {
       setError((err as ApiError).message);
@@ -72,16 +80,34 @@ export default function BillingPage() {
     });
   }
 
-  async function buyPlan(plan: PlanItem) {
+  // Step 1: open the billing-details form for the chosen plan.
+  function openBilling(plan: PlanItem) {
+    setBillTarget(plan);
+    setError(null);
+    setBillForm({
+      name: user.tenant?.company_name ?? user.tenant?.name ?? user.name,
+      email: user.email,
+      phone: "",
+      address: "",
+      gstin: "",
+    });
+  }
+
+  // Step 2: billing details submitted → create order → pay → verify → invoice.
+  async function confirmPurchase(e: React.FormEvent) {
+    e.preventDefault();
     const token = getToken();
-    if (!token) return;
+    const plan = billTarget;
+    if (!token || !plan) return;
     setSwitching(plan.id);
     setError(null);
     try {
-      const order = await api.billing.order(token, plan.id);
+      const billing: BillingDetails = { ...billForm, gstin: billForm.gstin || undefined };
+      const order = await api.billing.order(token, plan.id, billing);
 
-      // Free plan — assigned immediately, no checkout.
+      // Free plan — assigned immediately, invoice generated, no checkout.
       if (order.free) {
+        setBillTarget(null);
         setSubscription(order.subscription ?? null);
         flash(`You're now on the ${plan.name} plan.`);
         await load();
@@ -104,16 +130,18 @@ export default function BillingPage() {
         order_id: order.order_id,
         name: "Heltog SocialFlow",
         description: `${plan.name} plan`,
-        prefill: { name: user.name, email: user.email },
+        prefill: { name: billing.name, email: billing.email, contact: billing.phone },
         theme: { color: "#0e7c7b" },
         handler: async (resp: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
           try {
             const v = await api.billing.verify(token, {
               plan_id: plan.id,
+              billing,
               razorpay_order_id: resp.razorpay_order_id,
               razorpay_payment_id: resp.razorpay_payment_id,
               razorpay_signature: resp.razorpay_signature,
             });
+            setBillTarget(null);
             setSubscription(v.subscription);
             flash(v.message);
             await load();
@@ -127,10 +155,19 @@ export default function BillingPage() {
       });
       rzp.open();
     } catch (err) {
-      setError((err as ApiError).message);
+      const e2 = err as ApiError;
+      setError(e2.errors ? Object.values(e2.errors).flat().join(". ") : e2.message);
       setSwitching(null);
     }
   }
+
+  // GST preview for the billing modal.
+  const quote = (() => {
+    const price = billTarget?.price ?? 0;
+    const gst = Math.round(price * gstRate) / 100;
+    return { base: price, gst, total: price + gst };
+  })();
+  const inr = (n: number) => "₹" + n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const currentPlanId = subscription?.plan?.id;
   const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-IN") : "—");
@@ -214,7 +251,7 @@ export default function BillingPage() {
                         className="btn"
                         style={{ width: "100%", marginTop: 10, opacity: isCurrent ? 0.6 : 1 }}
                         disabled={isCurrent || switching === p.id}
-                        onClick={() => buyPlan(p)}
+                        onClick={() => openBilling(p)}
                       >
                         {isCurrent ? "Current plan" : switching === p.id ? "Processing…" : p.price > 0 ? `Buy — ${p.price_display}` : "Choose plan"}
                       </button>
@@ -231,26 +268,33 @@ export default function BillingPage() {
             {invoices.length === 0 ? (
               <p className="muted">No invoices yet.</p>
             ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr style={{ textAlign: "left", fontSize: 12, color: "#667781", borderBottom: "1px solid #eef1f2" }}>
-                    <th style={{ padding: "8px 6px" }}>Number</th>
-                    <th style={{ padding: "8px 6px" }}>Status</th>
-                    <th style={{ padding: "8px 6px" }}>Issued</th>
-                    <th style={{ padding: "8px 6px", textAlign: "right" }}>Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invoices.map((inv) => (
-                    <tr key={inv.id} style={{ borderBottom: "1px solid #f6f7f8" }}>
-                      <td style={{ padding: "8px 6px", fontSize: 13, fontFamily: "monospace" }}>{inv.number ?? inv.id.slice(0, 8)}</td>
-                      <td style={{ padding: "8px 6px", fontSize: 13, textTransform: "capitalize" }}>{inv.status}</td>
-                      <td style={{ padding: "8px 6px", fontSize: 13 }}>{fmtDate(inv.issued_at)}</td>
-                      <td style={{ padding: "8px 6px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{inv.total}</td>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ textAlign: "left", fontSize: 12, color: "#667781", borderBottom: "1px solid #eef1f2" }}>
+                      <th style={{ padding: "8px 6px" }}>Number</th>
+                      <th style={{ padding: "8px 6px" }}>Status</th>
+                      <th style={{ padding: "8px 6px" }}>Issued</th>
+                      <th style={{ padding: "8px 6px", textAlign: "right" }}>Total</th>
+                      <th style={{ padding: "8px 6px", textAlign: "right" }}></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {invoices.map((inv) => (
+                      <tr key={inv.id} style={{ borderBottom: "1px solid #f6f7f8" }}>
+                        <td style={{ padding: "8px 6px", fontSize: 13, fontFamily: "monospace" }}>{inv.number ?? inv.id.slice(0, 8)}</td>
+                        <td style={{ padding: "8px 6px", fontSize: 13, textTransform: "capitalize" }}>{inv.status}</td>
+                        <td style={{ padding: "8px 6px", fontSize: 13 }}>{fmtDate(inv.issued_at)}</td>
+                        <td style={{ padding: "8px 6px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{inv.total}</td>
+                        <td style={{ padding: "8px 6px", textAlign: "right", whiteSpace: "nowrap" }}>
+                          <button className="btn-mini" onClick={() => setViewInvoice(inv)}>View</button>
+                          <button className="btn-mini" style={{ marginLeft: 6 }} onClick={() => printInvoice(inv)}>⬇ PDF</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
 
@@ -258,6 +302,73 @@ export default function BillingPage() {
             Payments are processed securely by Razorpay (card / UPI / netbanking). Your plan activates automatically once payment succeeds.
           </p>
         </>
+      )}
+
+      {/* Billing details step */}
+      {billTarget && (
+        <div className="msg-info-overlay" onClick={() => setBillTarget(null)}>
+          <div className="msg-info-panel" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h2 style={{ margin: 0 }}>Billing details</h2>
+              <button className="btn-mini" onClick={() => setBillTarget(null)}>Close</button>
+            </div>
+            <p className="muted" style={{ fontSize: 13, marginTop: 4 }}>For your invoice ({billTarget.name} plan). GST is applied as per Indian tax rules.</p>
+            {error && <div className="error">{error}</div>}
+            <form onSubmit={confirmPurchase}>
+              <div className="field">
+                <label>Full name / Company name</label>
+                <input value={billForm.name} onChange={(e) => setBillForm((f) => ({ ...f, name: e.target.value }))} required placeholder="Acme Pvt Ltd" />
+              </div>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <div className="field" style={{ flex: 1, minWidth: 200 }}>
+                  <label>Email</label>
+                  <input type="email" value={billForm.email} onChange={(e) => setBillForm((f) => ({ ...f, email: e.target.value }))} required placeholder="billing@acme.com" />
+                </div>
+                <div className="field" style={{ flex: 1, minWidth: 160 }}>
+                  <label>Phone</label>
+                  <input value={billForm.phone} onChange={(e) => setBillForm((f) => ({ ...f, phone: e.target.value }))} required placeholder="+91…" />
+                </div>
+              </div>
+              <div className="field">
+                <label>Billing address</label>
+                <textarea value={billForm.address} onChange={(e) => setBillForm((f) => ({ ...f, address: e.target.value }))} required rows={2} placeholder="Street, City, State, PIN" style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, fontSize: 14, fontFamily: "inherit", resize: "vertical" }} />
+              </div>
+              <div className="field">
+                <label>GSTIN <span className="muted">(optional)</span></label>
+                <input value={billForm.gstin ?? ""} onChange={(e) => setBillForm((f) => ({ ...f, gstin: e.target.value }))} placeholder="22AAAAA0000A1Z5" />
+              </div>
+
+              <div style={{ background: "#f4f8f7", borderRadius: 10, padding: "12px 14px", margin: "6px 0 14px", fontSize: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}><span className="muted">Plan ({billTarget.name})</span><span>{inr(quote.base)}</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}><span className="muted">GST ({gstRate}%)</span><span>{inr(quote.gst)}</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, borderTop: "1px solid var(--border)", paddingTop: 6 }}><span>Total payable</span><span>{inr(quote.total)}</span></div>
+              </div>
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn" disabled={switching === billTarget.id} style={{ width: "auto", padding: "11px 22px" }}>
+                  {switching === billTarget.id ? "Processing…" : quote.total > 0 ? `Proceed to pay ${inr(quote.total)}` : "Activate plan"}
+                </button>
+                <button type="button" className="btn-mini" onClick={() => setBillTarget(null)}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Invoice viewer */}
+      {viewInvoice && (
+        <div className="msg-info-overlay" onClick={() => setViewInvoice(null)}>
+          <div className="msg-info-panel" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 780, width: "94vw", padding: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 8px 10px" }}>
+              <h2 style={{ margin: 0 }}>Invoice {viewInvoice.number}</h2>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn-mini" onClick={() => printInvoice(viewInvoice)}>⬇ Download PDF</button>
+                <button className="btn-mini" onClick={() => setViewInvoice(null)}>Close</button>
+              </div>
+            </div>
+            <iframe title="invoice" srcDoc={renderInvoiceHtml(viewInvoice)} style={{ width: "100%", height: "70vh", border: "1px solid var(--border)", borderRadius: 8, background: "#fff" }} />
+          </div>
+        </div>
       )}
     </>
   );

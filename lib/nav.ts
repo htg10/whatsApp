@@ -31,6 +31,7 @@ export const SUPER_ADMIN_NAV: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: "▤" },
   { label: "Companies", href: "/companies", icon: "🏢" },
   { label: "Plans", href: "/plans", icon: "💳" },
+  { label: "Settings", href: "/settings", icon: "⚙" },
 ];
 
 type NavUser = { is_super_admin?: boolean; permissions?: string[]; plan_features?: string[] | null };

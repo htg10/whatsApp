@@ -331,17 +331,17 @@ export const api = {
         "/billing", { token }
       ),
     plans: (token: string) =>
-      request<{ plans: PlanItem[] }>("/billing/plans", { token }),
+      request<{ plans: PlanItem[]; gst_rate: number }>("/billing/plans", { token }),
     wallet: (token: string) =>
       request<{ wallet: WalletInfo; transactions: WalletTxn[] }>("/billing/wallet", { token }),
     invoices: (token: string) =>
       request<{ invoices: InvoiceItem[]; meta: PaginationMeta }>("/billing/invoices", { token }),
     subscribe: (token: string, planId: string) =>
       request<{ subscription: SubscriptionItem2 }>("/billing/subscribe", { method: "POST", body: { plan_id: planId }, token }),
-    order: (token: string, planId: string) =>
-      request<RazorpayOrder>("/billing/order", { method: "POST", body: { plan_id: planId }, token }),
-    verify: (token: string, body: { plan_id: string; razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>
-      request<{ message: string; subscription: SubscriptionItem2 }>("/billing/verify", { method: "POST", body, token }),
+    order: (token: string, planId: string, billing: BillingDetails) =>
+      request<RazorpayOrder>("/billing/order", { method: "POST", body: { plan_id: planId, billing }, token }),
+    verify: (token: string, body: { plan_id: string; billing: BillingDetails; razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>
+      request<{ message: string; subscription: SubscriptionItem2; invoice: InvoiceItem }>("/billing/verify", { method: "POST", body, token }),
   },
 
   team: {
@@ -383,6 +383,11 @@ export const api = {
       request<{ plan: AdminPlan }>(`/admin/plans/${id}/toggle`, { method: "POST", token }),
     removePlan: (token: string, id: string) =>
       request<{ message: string }>(`/admin/plans/${id}`, { method: "DELETE", token }),
+
+    settings: (token: string) =>
+      request<{ settings: InvoiceSettings }>("/admin/settings", { token }),
+    updateSettings: (token: string, body: Partial<InvoiceSettings>) =>
+      request<{ settings: InvoiceSettings; message: string }>("/admin/settings", { method: "PUT", body, token }),
   },
 
   social: {
@@ -884,11 +889,34 @@ export type PlanItem = {
 export type RazorpayOrder = {
   free: boolean;
   subscription?: SubscriptionItem2;
+  invoice?: InvoiceItem;
   order_id?: string;
   amount?: number;
+  subtotal?: number;
+  tax?: number;
+  gst_rate?: number;
   currency?: string;
   key_id?: string;
   plan?: PlanItem;
+};
+
+export type BillingDetails = {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  gstin?: string;
+};
+
+export type InvoiceSettings = {
+  company_name: string | null;
+  address: string | null;
+  gstin: string | null;
+  email: string | null;
+  phone: string | null;
+  tax_details: string | null;
+  invoice_prefix: string | null;
+  gst_rate: number;
 };
 
 export type SubscriptionItem2 = {
@@ -919,12 +947,29 @@ export type WalletTxn = {
   created_at: string | null;
 };
 
+export type InvoiceLineItem = { description: string; amount_minor: number };
+export type InvoiceMeta = {
+  seller?: { company_name?: string | null; address?: string | null; gstin?: string | null; email?: string | null; phone?: string | null; tax_details?: string | null };
+  customer?: { name?: string; email?: string; phone?: string; address?: string; gstin?: string | null };
+  gst_rate?: number;
+  plan_name?: string;
+  billing_period?: string;
+  period_start?: string | null;
+  period_end?: string | null;
+};
 export type InvoiceItem = {
   id: string;
   number: string | null;
   status: string;
+  subtotal?: string;
+  tax?: string;
   total: string;
+  subtotal_minor?: number;
+  tax_minor?: number;
+  total_minor?: number;
   currency: string;
+  line_items?: InvoiceLineItem[];
+  meta?: InvoiceMeta;
   issued_at: string | null;
   paid_at: string | null;
   due_at: string | null;
