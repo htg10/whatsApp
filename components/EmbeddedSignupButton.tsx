@@ -69,7 +69,7 @@ export function EmbeddedSignupButton({
       return;
     }
     window.fbAsyncInit = function () {
-      window.FB.init({ appId, autoLogAppEvents: true, xfbml: true, version: apiVersion });
+      window.FB.init({ appId, autoLogAppEvents: true, xfbml: true, version: apiVersion || "v23.0" });
       setReady(true);
     };
     const id = "facebook-jssdk";
@@ -101,7 +101,15 @@ export function EmbeddedSignupButton({
       (response: any) => {
         const code = response?.authResponse?.code;
         if (!code) {
-          onError("WhatsApp sign-up was cancelled or not completed.");
+          // Surface Meta's own status so the cause is clear (often a domain /
+          // app-mode config issue rather than a user cancel).
+          const status = response?.status ? ` (status: ${response.status})` : "";
+          onError(
+            "WhatsApp sign-up did not complete" + status + ". " +
+            "If a Facebook error popup appeared, this domain may not be allowed in your Meta app " +
+            "(add it under Facebook Login → Settings → Allowed Domains for the JavaScript SDK, and App Domains), " +
+            "or the app isn't Live. You can also use manual connect below."
+          );
           return;
         }
         const waba = sessionInfo.current.waba_id;
