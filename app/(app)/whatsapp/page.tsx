@@ -95,6 +95,18 @@ export default function WhatsAppPage() {
     }
   }
 
+  async function subscribeApp(id: string) {
+    const token = getToken();
+    if (!token) return;
+    setError(null);
+    try {
+      const res = await api.whatsapp.subscribeApp(token, id);
+      setNotice(res.message);
+    } catch (err) {
+      setError((err as ApiError).message);
+    }
+  }
+
   async function sendTest(id: string) {
     const token = getToken();
     if (!token || !sendTo.trim()) return;
@@ -233,6 +245,7 @@ export default function WhatsAppPage() {
                       <button className="btn-mini" style={{ background: "#ff9800", color: "#fff", border: "none" }} onClick={() => { setRegId(regId === n.id ? null : n.id); setRegPin(""); setNotice(null); }}>Register</button>
                     )}
                     <button className="btn-mini" onClick={() => { setSendId(sendId === n.id ? null : n.id); setSendTo(""); setNotice(null); }}>Send test</button>
+                    <button className="btn-mini" onClick={() => subscribeApp(n.id)} title="Subscribe the app to this WhatsApp Business Account — fixes Meta #200 'no permission to send'">Enable sending</button>
                     <button className="btn-mini" onClick={() => sync(n.id)}>Sync</button>
                     <button className="btn-mini danger" onClick={() => disconnect(n.id)}>Disconnect</button>
                   </span>
