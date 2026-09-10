@@ -106,6 +106,23 @@ export default function SocialPage() {
     }
   }
 
+  const [rechecking, setRechecking] = useState(false);
+  async function recheckInstagram() {
+    const token = getToken();
+    if (!token) return;
+    setRechecking(true);
+    setError(null);
+    try {
+      const res = await api.social.recheckInstagram(token);
+      setConnection(res.connection);
+      flash(res.message);
+    } catch (err) {
+      setError(errMsg(err));
+    } finally {
+      setRechecking(false);
+    }
+  }
+
   async function disconnect() {
     const token = getToken();
     if (!token) return;
@@ -260,9 +277,14 @@ export default function SocialPage() {
                 {igLinked ? ` · Instagram @${connection.ig_username}` : " · No Instagram linked"}
               </div>
             </div>
-            <div style={{ display: "flex", gap: 6 }}>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               <span style={{ fontSize: 12, fontWeight: 600, background: "#e7f0ff", color: "#1877f2", padding: "4px 10px", borderRadius: 999 }}>f Facebook</span>
               <span style={{ fontSize: 12, fontWeight: 600, background: igLinked ? "#fdeef5" : "#eef1f2", color: igLinked ? "#c13584" : "#98a2ab", padding: "4px 10px", borderRadius: 999 }}>◙ Instagram</span>
+              {canConnect && !igLinked && (
+                <button className="btn-mini" disabled={rechecking} onClick={recheckInstagram} title="Re-detect the Instagram Business account linked to this Page">
+                  {rechecking ? "Checking…" : "Re-check Instagram"}
+                </button>
+              )}
             </div>
           </div>
 

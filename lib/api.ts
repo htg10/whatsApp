@@ -395,6 +395,8 @@ export const api = {
       request<{ connection: SocialConnection | null }>("/social/connection", { token }),
     connect: (token: string, body: { page_id: string; page_access_token: string }) =>
       request<{ connection: SocialConnection }>("/social/connect", { method: "POST", body, token }),
+    recheckInstagram: (token: string) =>
+      request<{ connection: SocialConnection; message: string }>("/social/recheck-instagram", { method: "POST", token }),
     disconnect: (token: string) =>
       request<{ message: string }>("/social/connection", { method: "DELETE", token }),
     posts: (token: string) =>
