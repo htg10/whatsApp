@@ -39,12 +39,13 @@ jobs:
           if [ "$miss" -ne 0 ]; then echo "Build has $miss missing assets — aborting deploy."; exit 1; fi
           echo "Build OK — all referenced assets present."
 
-      - name: Deploy to Hostinger via FTP (upload-only, never delete)
-        # We intentionally do NOT delete old files. Hostinger's CDN caches HTML
-        # for a long time; if a deploy deleted the previous build's chunks, that
-        # cached HTML would 404 them (ChunkLoadError). Keeping old chunks means
-        # any cached HTML — CDN or browser — always finds the chunks it asks for.
-        # Orphan chunks are tiny and harmless.
+      - name: Deploy to Hostinger via FTP
+        # One mirror of the whole build. --delete keeps the web root EXACTLY the
+        # build (orphan chunks from old deploys are removed) so the account's disk
+        # quota is never filled by accumulated builds. HTML is served no-cache
+        # (see public/.htaccess), so browsers always fetch fresh HTML that points
+        # at the chunks that are actually present — no ChunkLoadError. Flush the
+        # Hostinger CDN after a deploy so its edge cache doesn't serve stale HTML.
         env:
           FTP_SERVER: ${{ secrets.FTP_SERVER }}
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
@@ -61,13 +62,6 @@ jobs:
           set net:timeout 30
           set mirror:parallel-transfer-count 1
           set mirror:use-pget-n 1
-          # Upload the WHOLE build every time (NOT --only-newer): --only-newer can
-          # skip freshly-built chunks on timestamp/parallel hiccups, leaving the new
-          # HTML pointing at chunks that were never uploaded -> 404 / ChunkLoadError.
-          # Still no --delete, so previously-deployed chunks stay for cached HTML.
-          # _next/static is uploaded FIRST so the chunks exist before the HTML that
-          # references them goes live.
-          mirror -R --verbose ./out/_next/ "$FTP_SERVER_DIR/_next"
-          mirror -R --verbose ./out/ "$FTP_SERVER_DIR"
+          mirror -R --delete --verbose ./out/ "$FTP_SERVER_DIR"
           bye
           EOF
