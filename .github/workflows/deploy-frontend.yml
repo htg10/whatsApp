@@ -62,6 +62,11 @@ jobs:
           set net:timeout 30
           set mirror:parallel-transfer-count 1
           set mirror:use-pget-n 1
+          # Remove the previous build's _next FIRST so its (many) old chunk files
+          # free disk space AND inodes before we upload — otherwise a full/large
+          # account rejects new uploads with 550 (quota / No such file or directory)
+          # because --delete only prunes AFTER uploading. -f = no error if absent.
+          rm -r -f "$FTP_SERVER_DIR/_next"
           mirror -R --delete --verbose ./out/ "$FTP_SERVER_DIR"
           bye
           EOF
