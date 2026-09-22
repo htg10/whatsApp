@@ -29,6 +29,9 @@ export default function WhatsAppPage() {
   const [regId, setRegId] = useState<string | null>(null);
   const [regPin, setRegPin] = useState("");
   const [registering, setRegistering] = useState(false);
+  const [tokenId, setTokenId] = useState<string | null>(null);
+  const [tokenVal, setTokenVal] = useState("");
+  const [updatingToken, setUpdatingToken] = useState(false);
 
   const load = useCallback(async () => {
     const token = getToken();
@@ -147,6 +150,23 @@ export default function WhatsAppPage() {
     }
   }
 
+  async function updateToken(id: string) {
+    const token = getToken();
+    if (!token || !tokenVal.trim()) return;
+    setUpdatingToken(true);
+    setError(null);
+    try {
+      const res = await api.whatsapp.updateToken(token, id, tokenVal.trim());
+      setNotice(res.message);
+      setTokenId(null);
+      setTokenVal("");
+    } catch (err) {
+      setError((err as ApiError).message);
+    } finally {
+      setUpdatingToken(false);
+    }
+  }
+
   async function disconnect(id: string) {
     const token = getToken();
     if (!token) return;
@@ -172,7 +192,16 @@ export default function WhatsAppPage() {
       />
 
       {notice && <div className="panel" style={{ background: "#e7f7ef", borderColor: "#b6e6cd", color: "#0a7d47" }}>{notice}</div>}
-      {error && <div className="error">{error}</div>}
+      {error && (
+        <div className="error">
+          {error}
+          {error.includes("#200") && (
+            <div style={{ marginTop: 8, fontSize: 13 }}>
+              Your WhatsApp access token cannot send on this number. Re-connect with a permanent System User token that has <b>whatsapp_business_messaging</b> + <b>whatsapp_business_management</b> permissions and whose System User is assigned to this WhatsApp Business Account. — Meta: (#200) You do not have the necessary permissions to send messages on behalf of this WhatsApp Business Account
+            </div>
+          )}
+        </div>
+      )}
 
       {showForm && (
         <div className="panel">
@@ -246,6 +275,7 @@ export default function WhatsAppPage() {
                     )}
                     <button className="btn-mini" onClick={() => { setSendId(sendId === n.id ? null : n.id); setSendTo(""); setNotice(null); }}>Send test</button>
                     <button className="btn-mini" onClick={() => subscribeApp(n.id)} title="Subscribe the app to this WhatsApp Business Account — fixes Meta #200 'no permission to send'">Enable sending</button>
+                    <button className="btn-mini" style={{ background: "#7c3aed", color: "#fff", border: "none" }} onClick={() => { setTokenId(tokenId === n.id ? null : n.id); setTokenVal(""); setNotice(null); }} title="Update the System User access token for this number">Update Token</button>
                     <button className="btn-mini" onClick={() => sync(n.id)}>Sync</button>
                     <button className="btn-mini danger" onClick={() => disconnect(n.id)}>Disconnect</button>
                   </span>
@@ -264,6 +294,22 @@ export default function WhatsAppPage() {
                     </button>
                     <span className="muted" style={{ fontSize: 12, width: "100%" }}>
                       Enter a 6-digit PIN for two-step verification. This registers your phone number on the WhatsApp Cloud API so you can send messages.
+                    </span>
+                  </div>
+                )}
+                {tokenId === n.id && (
+                  <div style={{ padding: "12px 0 16px", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                    <input
+                      value={tokenVal}
+                      onChange={(e) => setTokenVal(e.target.value)}
+                      placeholder="Paste new System User access token"
+                      style={{ flex: 1, minWidth: 260, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, fontSize: 14 }}
+                    />
+                    <button className="btn" style={{ width: "auto", padding: "10px 18px", background: "#7c3aed" }} disabled={updatingToken || !tokenVal.trim()} onClick={() => updateToken(n.id)}>
+                      {updatingToken ? "Updating…" : "Save Token"}
+                    </button>
+                    <span className="muted" style={{ fontSize: 12, width: "100%" }}>
+                      Get a permanent System User token from <b>Meta Business Suite → Settings → System Users</b> with <b>whatsapp_business_messaging</b> + <b>whatsapp_business_management</b> permissions. Assign the System User to this WhatsApp Business Account first.
                     </span>
                   </div>
                 )}
