@@ -76,7 +76,7 @@ export default function CampaignsPage() {
   // Bulk send form
   const [showBulk, setShowBulk] = useState(false);
   const [bulkNumbers, setBulkNumbers] = useState("");
-  const [bulkTemplate, setBulkTemplate] = useState("pg_owenr_welcome");
+  const [bulkTemplate, setBulkTemplate] = useState("test_welcome");
   const [bulkLang, setBulkLang] = useState("en");
   const [bulkVars, setBulkVars] = useState<string[]>([]);
   const [bulkDetail, setBulkDetail] = useState<BulkSendDetail | null>(null);

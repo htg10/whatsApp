@@ -574,7 +574,7 @@ export default function AutomationsPage() {
                       <input
                         value={(selNode.config?.template_name as string) ?? ""}
                         onChange={(e) => updateNodeConfig(selNode.node_key, { ...selNode.config, template_name: e.target.value })}
-                        placeholder="pg_owenr_welcome"
+                        placeholder="test_welcome"
                         style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 8, fontSize: 13 }}
                       />
                     </div>
