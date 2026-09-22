@@ -89,6 +89,8 @@ export const api = {
       request<{ number: WaNumber }>(`/whatsapp/numbers/${id}/register`, { method: "POST", body: { pin }, token }),
     subscribeApp: (token: string, id: string) =>
       request<{ message: string }>(`/whatsapp/numbers/${id}/subscribe-app`, { method: "POST", token }),
+    updateToken: (token: string, id: string, access_token: string) =>
+      request<{ message: string }>(`/whatsapp/numbers/${id}/token`, { method: "PUT", body: { access_token }, token }),
     disconnect: (token: string, id: string) =>
       request<{ message: string }>(`/whatsapp/numbers/${id}`, { method: "DELETE", token }),
   },
