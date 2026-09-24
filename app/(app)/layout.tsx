@@ -8,6 +8,7 @@ import { getToken, clearToken } from "@/lib/auth";
 import { navFor } from "@/lib/nav";
 import { UserContext } from "@/lib/user-context";
 import { Preloader } from "@/components/Preloader";
+import { NoPlanGate } from "@/components/PlanGate";
 
 const ROLE_LABELS: Record<string, string> = {
   "super-admin": "Super Admin",
@@ -20,7 +21,7 @@ function roleLabel(role: string): string {
   return ROLE_LABELS[role] ?? role;
 }
 
-function TopBar({ user }: { user: User }) {
+function TopBar({ user, onMenuToggle }: { user: User; onMenuToggle: () => void }) {
   const [dark, setDark] = useState(false);
   const [fs, setFs] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -52,6 +53,7 @@ function TopBar({ user }: { user: User }) {
 
   return (
     <div className="appbar">
+      <button className="menu-toggle" onClick={onMenuToggle} aria-label="Toggle menu">☰</button>
       <div className="appbar-title">{user.tenant?.company_name ?? user.tenant?.name ?? "Heltog SocialFlow"}</div>
       <div className="appbar-actions">
         <div style={{ position: "relative" }}>
@@ -82,6 +84,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     const token = getToken();
@@ -103,6 +106,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       });
   }, [router]);
 
+  function refreshUser() {
+    const token = getToken();
+    if (!token) return;
+    api.me(token).then((data) => setUser(data.user)).catch(() => {});
+  }
+
   function logout() {
     clearToken();
     router.replace("/login");
@@ -111,10 +120,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   if (error) return <div className="center-screen">Error: {error}</div>;
   if (!user) return <Preloader label="Loading your workspace…" />;
 
+  const hasActivePlan = user.is_super_admin ||
+    user.subscription?.status === "active" ||
+    user.subscription?.status === "trialing";
+
+  if (!hasActivePlan) {
+    return <NoPlanGate user={user} onActivated={refreshUser} />;
+  }
+
   return (
     <UserContext.Provider value={user}>
       <div className="shell">
-        <aside className="sidebar">
+        {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
+        <aside className={`sidebar ${sidebarOpen ? "sidebar-open" : ""}`}>
           <div className="logo" style={{ margin: "-20px -14px 18px", padding: "16px", background: "#fff", display: "flex", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,.12)" }}>
             <img src="/logo.png" alt="Heltog SocialFlow" style={{ width: "100%", maxWidth: 180, height: "auto", display: "block" }} />
           </div>
@@ -122,7 +140,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {navFor(user).map((item) => {
               const active = pathname === item.href || pathname.startsWith(item.href + "/");
               return (
-                <Link key={item.href} href={item.href} className={active ? "active" : ""}>
+                <Link key={item.href} href={item.href} className={active ? "active" : ""} onClick={() => setSidebarOpen(false)}>
                   <span style={{ display: "inline-block", width: 22, opacity: 0.85 }}>{item.icon}</span>
                   {item.label}
                 </Link>
@@ -146,7 +164,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </aside>
         <main className="main">
-          <TopBar user={user} />
+          <TopBar user={user} onMenuToggle={() => setSidebarOpen((v) => !v)} />
           <div className="main-content">{children}</div>
         </main>
       </div>
