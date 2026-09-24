@@ -524,3 +524,114 @@ a:hover { text-decoration: underline; }
 /* Message info overlay */
 .msg-info-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 200; display: grid; place-items: center; }
 .msg-info-panel { background: #fff; border-radius: 14px; padding: 20px; width: 360px; max-width: 90vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 30px rgba(0,0,0,.2); }
+
+/* ---- Mobile hamburger toggle ---- */
+.menu-toggle { display: none; }
+.sidebar-overlay { display: none; }
+
+/* ---- Mobile responsive ---- */
+@media (max-width: 768px) {
+  /* Hamburger button */
+  .menu-toggle {
+    display: grid; place-items: center;
+    width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--bg); cursor: pointer; font-size: 18px; flex-shrink: 0;
+  }
+
+  /* Sidebar: hidden by default, overlay when open */
+  .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 100;
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+    width: 260px;
+  }
+  .sidebar.sidebar-open { transform: translateX(0); }
+  .sidebar-overlay {
+    display: block; position: fixed; inset: 0; z-index: 99;
+    background: rgba(0,0,0,.45);
+  }
+
+  /* Main content */
+  .main-content { padding: 16px; }
+  .appbar { padding: 10px 16px; gap: 8px; }
+  .appbar-title { font-size: 13px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Hide fullscreen button on mobile */
+  .appbar-actions .appbar-btn[title="Full screen"],
+  .appbar-actions .appbar-btn[title="Exit full screen"] { display: none; }
+
+  /* Appbar user: hide name/role, show only avatar */
+  .appbar-user > div:last-child { display: none; }
+  .appbar-user { border: none; padding: 0; margin: 0; }
+
+  /* Page headers */
+  .topbar { flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 18px; }
+  .topbar h1 { font-size: 18px; }
+
+  /* Stat cards */
+  .stat-cards { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .stat-card .sc-value { font-size: 20px; }
+
+  /* Dashboard hero */
+  .hero { padding: 18px 16px; border-radius: 14px; }
+  .hero h1 { font-size: 18px; }
+
+  /* Panels */
+  .panel { padding: 16px; margin-bottom: 14px; }
+
+  /* Rows: stack on small screens */
+  .row { flex-direction: column; gap: 4px; }
+
+  /* Buttons in action areas */
+  .btn-mini { padding: 6px 10px; font-size: 12px; }
+
+  /* Quick actions */
+  .quick-actions { gap: 8px; }
+  .quick-action { padding: 8px 12px; font-size: 13px; }
+
+  /* Inbox: stack layout */
+  .inbox-layout { flex-direction: column; height: auto; min-height: calc(100vh - 80px); }
+  .convo-list { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 45vh; }
+  .chat-area { min-height: 55vh; }
+  .bubble { max-width: 85%; }
+  .compose-bar { padding: 8px 10px; gap: 6px; }
+  .compose-bar input { padding: 10px 12px; font-size: 13px; }
+  .chat-header { padding: 10px 14px; flex-wrap: wrap; gap: 8px; }
+
+  /* Grid layouts */
+  .grid { grid-template-columns: 1fr; }
+
+  /* Tables: horizontal scroll */
+  table { display: block; overflow-x: auto; white-space: nowrap; }
+
+  /* Modals / overlays */
+  .msg-info-panel { width: 95vw; padding: 16px; }
+  .appbar-pop { width: 220px; right: -8px; }
+
+  /* Notification popup */
+  .appbar-pop { width: 240px; }
+
+  /* Overflow protection */
+  .main-content { overflow-x: hidden; }
+  .panel { overflow-x: auto; }
+  .panel input, .panel select, .panel textarea { max-width: 100%; }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+  .stat-cards { grid-template-columns: 1fr; }
+  .convo-list { max-height: 40vh; }
+  .convo-item { padding: 10px 12px; gap: 10px; }
+  .convo-avatar { width: 38px; height: 38px; font-size: 14px; }
+  .hero h1 { font-size: 16px; }
+  .hero { padding: 14px 12px; }
+  .main-content { padding: 12px; }
+  .appbar { padding: 8px 12px; }
+  .lp-hero h1 { font-size: 26px; }
+  .lp-hero { padding: 40px 5vw 32px; }
+  .lp-section { padding: 40px 5vw; }
+  .lp-stats { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .bubble { max-width: 90%; }
+  .bubble-media img, .bubble-media video { max-width: 220px; }
+}
+
