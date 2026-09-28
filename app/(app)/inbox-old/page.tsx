@@ -126,7 +126,6 @@ export default function InboxPage() {
   const [filter, setFilter] = useState<string>("all");
   const [agentFilter, setAgentFilter] = useState<string>("");
   const [stickyOnly, setStickyOnly] = useState(false);
-  const [hotOnly, setHotOnly] = useState(false);
   const [sticky, setSticky] = useState<Set<string>>(new Set());
 
   // Chat transfer / assignment
@@ -577,7 +576,6 @@ export default function InboxPage() {
   const displayedConversations = conversations
     .filter((c) => !agentFilter || c.assigned_agent?.name === agentFilter)
     .filter((c) => !stickyOnly || sticky.has(c.id))
-    .filter((c) => !hotOnly || c.contact?.is_hot)
     .slice()
     .sort((a, b) => (sticky.has(b.id) ? 1 : 0) - (sticky.has(a.id) ? 1 : 0));
 
@@ -637,10 +635,6 @@ export default function InboxPage() {
           <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap", color: "#54656f" }}>
             <input type="checkbox" checked={stickyOnly} onChange={(e) => setStickyOnly(e.target.checked)} />
             📌 Sticky chats
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap", color: "#54656f" }}>
-            <input type="checkbox" checked={hotOnly} onChange={(e) => setHotOnly(e.target.checked)} />
-            🔥 Hot leads
           </label>
           <button className="btn-mini" onClick={downloadChatReport}>⬇ Download report</button>
         </div>
@@ -760,7 +754,7 @@ export default function InboxPage() {
             <div style={{ padding: 20, color: "var(--muted)", textAlign: "center" }}>Loading...</div>
           ) : displayedConversations.length === 0 ? (
             <div style={{ padding: 20, color: "var(--muted)", textAlign: "center" }}>
-              {hotOnly ? "No hot leads yet. Contacts who show interest appear here." : stickyOnly ? "No sticky chats yet. Tap the 📌 on a chat to pin it." : agentFilter ? "No chats for this agent." : "No conversations yet. Send a message from the WhatsApp page, or wait for incoming messages after configuring webhooks."}
+              {stickyOnly ? "No sticky chats yet. Tap the 📌 on a chat to pin it." : agentFilter ? "No chats for this agent." : "No conversations yet. Send a message from the WhatsApp page, or wait for incoming messages after configuring webhooks."}
             </div>
           ) : (
             displayedConversations.map((conv) => (
@@ -774,10 +768,7 @@ export default function InboxPage() {
                 </div>
                 <div className="convo-info">
                   <div className="convo-name">
-                    <span>
-                      {conv.contact?.is_hot && <span title={conv.contact.hot_reason ?? "Hot lead"} style={{ marginRight: 4 }}>🔥</span>}
-                      {conv.contact?.name || conv.contact?.phone || conv.contact?.wa_id || "Unknown"}
-                    </span>
+                    <span>{conv.contact?.name || conv.contact?.phone || conv.contact?.wa_id || "Unknown"}</span>
                     <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <button
                         onClick={(e) => toggleSticky(conv.id, e)}
