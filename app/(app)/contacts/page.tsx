@@ -7,6 +7,28 @@ import { PageHeader } from "@/components/PageHeader";
 import { UpgradePrompt, planAllows } from "@/components/PlanGate";
 import { useUser } from "@/lib/user-context";
 
+type ImportRow = { phone: string; name?: string; email?: string; company?: string; tag_list?: string };
+
+function splitLine(line: string): string[] {
+  const out: string[] = [];
+  let cur = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if (!inQuotes && (ch === "," || ch === ";" || ch === "\t")) {
+      out.push(cur.trim());
+      cur = "";
+    } else {
+      cur += ch;
+    }
+  }
+  out.push(cur.trim());
+  return out;
+}
+
 export default function ContactsPage() {
   const gateUser = useUser();
   const [contacts, setContacts] = useState<ContactItem[]>([]);
@@ -67,7 +89,7 @@ export default function ContactsPage() {
       name: c.name ?? "",
       email: c.email ?? "",
       company: c.company ?? "",
-      tags: c.tags?.map((t) => t.name).join(", ") ?? "",
+      tags: c.tag_list ?? "",
     });
     setShowForm(true);
     setShowImport(false);
@@ -80,7 +102,7 @@ export default function ContactsPage() {
     if (!token) return;
     setSubmitting(true);
     setError(null);
-    const tagList = form.tags.split(",").map((t) => t.trim()).filter(Boolean);
+    const tagList = form.tags.split(/[,;|]/).map((t) => t.trim()).filter(Boolean).join(", ");
 
     try {
       if (editing) {
@@ -88,7 +110,7 @@ export default function ContactsPage() {
           name: form.name || null,
           email: form.email || null,
           company: form.company || null,
-          tags: tagList,
+          tag_list: tagList,
         });
         setNotice("Contact updated.");
       } else {
@@ -97,7 +119,7 @@ export default function ContactsPage() {
           name: form.name || undefined,
           email: form.email || undefined,
           company: form.company || undefined,
-          tags: tagList.length ? tagList : undefined,
+          tag_list: tagList || undefined,
         });
         setNotice("Contact created.");
       }
@@ -135,18 +157,50 @@ export default function ContactsPage() {
     e.target.value = "";
   }
 
-  function parseCSV(text: string): { phone: string; name?: string; email?: string; company?: string }[] {
-    const lines = text.split(/[\n\r]+/).filter(Boolean);
+  function parseCSV(text: string): ImportRow[] {
+    const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((l) => l.trim());
     if (lines.length === 0) return [];
-    const header = lines[0].toLowerCase();
-    const hasHeader = header.includes("phone") || header.includes("name") || header.includes("email");
-    const dataLines = hasHeader ? lines.slice(1) : lines;
 
-    return dataLines.map((line) => {
-      const cols = line.split(/[,;\t]+/).map((c) => c.trim().replace(/^["']|["']$/g, ""));
-      if (cols.length === 1) return { phone: cols[0] };
-      return { phone: cols[0], name: cols[1] || undefined, email: cols[2] || undefined, company: cols[3] || undefined };
-    }).filter((r) => r.phone.length >= 10);
+    const aliases: Record<string, string[]> = {
+      phone: ["phone", "mobile", "number", "whatsapp", "phone number"],
+      name: ["name", "full name"],
+      email: ["email", "e-mail"],
+      company: ["company", "organization"],
+      tags: ["tags", "tag", "labels"],
+    };
+
+    const firstCells = splitLine(lines[0]).map((c) => c.toLowerCase());
+    const hasHeader = firstCells.some((c) => Object.values(aliases).some((a) => a.includes(c)));
+
+    // default column order when there is no header
+    let index: Record<string, number> = { phone: 0, name: 1, email: 2, company: 3, tags: 4 };
+    if (hasHeader) {
+      index = {};
+      for (const [field, names] of Object.entries(aliases)) {
+        const i = firstCells.findIndex((c) => names.includes(c));
+        if (i >= 0) index[field] = i;
+      }
+    }
+
+    const get = (cols: string[], f: string) => (index[f] !== undefined ? cols[index[f]] || undefined : undefined);
+
+    return (hasHeader ? lines.slice(1) : lines)
+      .map((line) => {
+        const cols = splitLine(line);
+        const tagList = (get(cols, "tags") ?? "")
+          .split(/[,;|]/)
+          .map((t) => t.trim())
+          .filter(Boolean)
+          .join(", ");
+        return {
+          phone: get(cols, "phone") ?? "",
+          name: get(cols, "name"),
+          email: get(cols, "email"),
+          company: get(cols, "company"),
+          tag_list: tagList || undefined,
+        } as ImportRow;
+      })
+      .filter((r) => r.phone.replace(/\D/g, "").length >= 10);
   }
 
   async function doImport() {
@@ -167,6 +221,17 @@ export default function ContactsPage() {
       setError((err as ApiError).message);
     } finally {
       setImporting(false);
+    }
+  }
+
+  async function toggleHot(c: ContactItem) {
+    const token = getToken();
+    if (!token) return;
+    try {
+      const res = await api.contacts.setHot(token, c.id, !c.is_hot);
+      setContacts((prev) => prev.map((x) => (x.id === c.id ? { ...x, ...res.contact } : x)));
+    } catch (err) {
+      setError((err as ApiError).message);
     }
   }
 
@@ -230,7 +295,7 @@ export default function ContactsPage() {
         <div className="panel">
           <h2>Import Contacts</h2>
           <p className="muted" style={{ marginTop: 0 }}>
-            Upload a CSV file or paste data. Format: phone, name, email, company (one per line). First row can be a header.
+            Upload a CSV file or paste data. Format: phone, name, email, company, tags (one per line). First row can be a header. Separate multiple tags with | (pipe) or wrap them in quotes.
           </p>
           <div style={{ display: "flex", gap: 10, marginBottom: 8 }}>
             <button type="button" className="btn-mini" onClick={() => fileRef.current?.click()}>Upload CSV</button>
@@ -239,7 +304,7 @@ export default function ContactsPage() {
           <textarea
             value={importText}
             onChange={(e) => setImportText(e.target.value)}
-            placeholder={"phone,name,email,company\n919876543210,John,john@example.com,Acme Inc"}
+            placeholder={"phone,name,email,company,tags\n919876543210,John,john@example.com,Acme Inc,vip"}
             rows={8}
             style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, fontSize: 13, fontFamily: "monospace", resize: "vertical" }}
           />
@@ -308,10 +373,10 @@ export default function ContactsPage() {
             <div><span className="muted">Last active:</span> {detail.last_interaction_at ? new Date(detail.last_interaction_at).toLocaleDateString("en-IN") : "—"}</div>
             {detail.conversations_count !== undefined && <div><span className="muted">Conversations:</span> {detail.conversations_count}</div>}
           </div>
-          {detail.tags && detail.tags.length > 0 && (
+          {detail.tag_list && (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {detail.tags.map((t) => (
-                <span key={t.id} style={{ background: t.color + "22", color: t.color, padding: "2px 10px", borderRadius: 999, fontSize: 12, fontWeight: 600 }}>{t.name}</span>
+              {detail.tag_list.split(",").map((s) => s.trim()).filter(Boolean).map((name) => (
+                <span key={name} style={{ background: "#1a7f6422", color: "#1a7f64", padding: "2px 10px", borderRadius: 999, fontSize: 12, fontWeight: 600 }}>{name}</span>
               ))}
             </div>
           )}
@@ -346,20 +411,21 @@ export default function ContactsPage() {
                         {(meta.current_page - 1) * 25 + i + 1}
                       </td>
                       <td style={{ padding: "8px 4px", cursor: "pointer", color: "#1a7f64", fontWeight: 500 }} onClick={() => viewDetail(c.id)}>
-                        {c.name || "—"}
+                        {c.is_hot && <span title={c.hot_reason ?? "Hot lead"} style={{ marginRight: 4 }}>🔥</span>}{c.name || "—"}
                       </td>
                       <td style={{ padding: "8px 4px", fontFamily: "monospace" }}>{c.phone}</td>
                       <td style={{ padding: "8px 4px" }}>{c.email ?? "—"}</td>
                       <td style={{ padding: "8px 4px" }}>
                         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                          {c.tags?.map((t) => (
-                            <span key={t.id} style={{ background: t.color + "22", color: t.color, padding: "1px 8px", borderRadius: 999, fontSize: 11, fontWeight: 600 }}>{t.name}</span>
+                          {(c.tag_list ?? "").split(",").map((s) => s.trim()).filter(Boolean).map((name) => (
+                            <span key={name} style={{ background: "#1a7f6422", color: "#1a7f64", padding: "1px 8px", borderRadius: 999, fontSize: 11, fontWeight: 600 }}>{name}</span>
                           ))}
                         </div>
                       </td>
                       <td style={{ padding: "8px 4px", textTransform: "capitalize" }}>{c.source ?? "—"}</td>
                       <td style={{ padding: "8px 4px", textAlign: "right" }}>
                         <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                          <button className="btn-mini" onClick={() => toggleHot(c)}>{c.is_hot ? "Remove 🔥" : "Mark 🔥"}</button>
                           <button className="btn-mini" onClick={() => openEdit(c)}>Edit</button>
                           <button className="btn-mini danger" onClick={() => remove(c.id)}>Delete</button>
                         </div>

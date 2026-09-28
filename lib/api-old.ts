@@ -96,11 +96,10 @@ export const api = {
   },
 
   contacts: {
-    list: (token: string, params?: { search?: string; tag?: string; hot?: boolean; page?: number }) => {
+    list: (token: string, params?: { search?: string; tag?: string; page?: number }) => {
       const qs = new URLSearchParams();
       if (params?.search) qs.set("search", params.search);
       if (params?.tag) qs.set("tag", params.tag);
-      if (params?.hot) qs.set("hot", "1");
       if (params?.page) qs.set("page", String(params.page));
       const q = qs.toString();
       return request<{ contacts: ContactItem[]; meta: PaginationMeta }>(
@@ -113,8 +112,6 @@ export const api = {
       request<{ contact: ContactItem }>("/contacts", { method: "POST", body, token }),
     update: (token: string, id: string, body: Record<string, unknown>) =>
       request<{ contact: ContactItem }>(`/contacts/${id}`, { method: "PUT", body, token }),
-    setHot: (token: string, id: string, is_hot: boolean, reason?: string) =>
-      request<{ contact: ContactItem }>(`/contacts/${id}/hot`, { method: "PUT", body: { is_hot, reason }, token }),
     remove: (token: string, id: string) =>
       request<{ message: string }>(`/contacts/${id}`, { method: "DELETE", token }),
     import: (token: string, contacts: { phone: string; name?: string; email?: string; company?: string; tag_list?: string }[]) =>
@@ -580,7 +577,7 @@ export type Conversation = {
   last_message_preview: string | null;
   window_expires_at: string | null;
   window_open: boolean;
-  contact?: { id: string; name: string | null; phone: string | null; wa_id: string; is_hot?: boolean; hot_reason?: string | null };
+  contact?: { id: string; name: string | null; phone: string | null; wa_id: string };
   phone_number?: { id: string; display_phone_number: string; verified_name: string | null };
   assigned_agent?: { id: string; name: string } | null;
   created_at: string | null;
@@ -596,10 +593,6 @@ export type ContactItem = {
   email: string | null;
   company: string | null;
   tag_list?: string | null;
-  is_hot?: boolean;
-  hot_reason?: string | null;
-  hot_at?: string | null;
-  hot_source?: string | null;
   source: string | null;
   language: string | null;
   country: string | null;

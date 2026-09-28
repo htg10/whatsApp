@@ -13,7 +13,6 @@ export const NAV: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: "▤" },
   { label: "Inbox", href: "/inbox", icon: "✉", perm: "conversations.view" },
   { label: "Contacts", href: "/contacts", icon: "☰", perm: "contacts.view" },
-  { label: "Hot List", href: "/hot-list", icon: "🔥", perm: "contacts.view" },
   { label: "Black List", href: "/blacklist", icon: "🚫", perm: "contacts.view" },
   { label: "Campaigns", href: "/campaigns", icon: "📣", perm: "campaigns.view" },
   { label: "Social", href: "/social", icon: "📸", perm: "campaigns.view", feature: "social" },
