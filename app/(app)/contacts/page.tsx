@@ -224,17 +224,6 @@ export default function ContactsPage() {
     }
   }
 
-  async function toggleHot(c: ContactItem) {
-    const token = getToken();
-    if (!token) return;
-    try {
-      const res = await api.contacts.setHot(token, c.id, !c.is_hot);
-      setContacts((prev) => prev.map((x) => (x.id === c.id ? { ...x, ...res.contact } : x)));
-    } catch (err) {
-      setError((err as ApiError).message);
-    }
-  }
-
   async function viewDetail(id: string) {
     const token = getToken();
     if (!token) return;
@@ -425,7 +414,6 @@ export default function ContactsPage() {
                       <td style={{ padding: "8px 4px", textTransform: "capitalize" }}>{c.source ?? "—"}</td>
                       <td style={{ padding: "8px 4px", textAlign: "right" }}>
                         <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                          <button className="btn-mini" onClick={() => toggleHot(c)}>{c.is_hot ? "Remove 🔥" : "Mark 🔥"}</button>
                           <button className="btn-mini" onClick={() => openEdit(c)}>Edit</button>
                           <button className="btn-mini danger" onClick={() => remove(c.id)}>Delete</button>
                         </div>

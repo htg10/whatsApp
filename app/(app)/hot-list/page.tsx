@@ -20,7 +20,6 @@ export default function HotListPage() {
   const [contacts, setContacts] = useState<ContactItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
   const load = useCallback(async (silent = false) => {
@@ -45,23 +44,6 @@ export default function HotListPage() {
     return () => clearInterval(t);
   }, [load]);
 
-  function flash(msg: string) {
-    setNotice(msg);
-    setTimeout(() => setNotice(null), 3500);
-  }
-
-  async function remove(c: ContactItem) {
-    const token = getToken();
-    if (!token) return;
-    try {
-      await api.contacts.setHot(token, c.id, false);
-      setContacts((prev) => prev.filter((x) => x.id !== c.id));
-      flash("Removed from the hot list.");
-    } catch (err) {
-      setError((err as ApiError).message);
-    }
-  }
-
   return (
     <div>
       <PageHeader
@@ -70,7 +52,6 @@ export default function HotListPage() {
       />
 
       {error && <div className="error">{error}</div>}
-      {notice && <div className="panel" style={{ background: "#e7f7ef", color: "#0a7d47", marginBottom: 16 }}>{notice}</div>}
 
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name, phone, email…"
@@ -108,15 +89,11 @@ export default function HotListPage() {
                   <td style={{ padding: "12px 14px" }}>{c.company ?? "—"}</td>
                   <td style={{ padding: "12px 14px", maxWidth: 340, fontSize: 13 }}>
                     {c.hot_reason ?? "—"}
-                    {c.hot_source === "manual" && (
-                      <span style={{ marginLeft: 6, background: "#eef1f2", color: "#54656f", padding: "1px 8px", borderRadius: 999, fontSize: 11, fontWeight: 600 }}>Manual</span>
-                    )}
                   </td>
                   <td style={{ padding: "12px 14px", color: "#667781", whiteSpace: "nowrap" }}>{timeAgo(c.hot_at)}</td>
                   <td style={{ padding: "12px 14px", textAlign: "right", whiteSpace: "nowrap" }}>
-                    <a className="btn-mini" style={{ marginRight: 6, textDecoration: "none" }}
+                    <a className="btn-mini" style={{ textDecoration: "none" }}
                       href={`https://wa.me/${c.wa_id}`} target="_blank" rel="noreferrer">WhatsApp</a>
-                    <button className="btn-mini" onClick={() => remove(c)}>Remove</button>
                   </td>
                 </tr>
               ))}
