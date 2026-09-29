@@ -574,12 +574,16 @@ export default function InboxPage() {
 
   const agentNames = Array.from(new Set(conversations.map((c) => c.assigned_agent?.name).filter(Boolean))) as string[];
 
+  // 0 = not hot; otherwise the AI's priority score (1-100).
+  const hotScore = (c: Conversation) => (c.contact?.is_hot ? (c.contact.hot_score ?? 50) : 0);
+
   const displayedConversations = conversations
     .filter((c) => !agentFilter || c.assigned_agent?.name === agentFilter)
     .filter((c) => !stickyOnly || sticky.has(c.id))
     .filter((c) => !hotOnly || c.contact?.is_hot)
     .slice()
-    .sort((a, b) => (sticky.has(b.id) ? 1 : 0) - (sticky.has(a.id) ? 1 : 0));
+    // AI-selected hot leads first (highest priority score on top), then pinned chats.
+    .sort((a, b) => (hotScore(b) - hotScore(a)) || ((sticky.has(b.id) ? 1 : 0) - (sticky.has(a.id) ? 1 : 0)));
 
   // Chats whose last activity was today (approx. "active today").
   const todayCount = conversations.filter((c) => {
@@ -775,7 +779,16 @@ export default function InboxPage() {
                 <div className="convo-info">
                   <div className="convo-name">
                     <span>
-                      {conv.contact?.is_hot && <span title={conv.contact.hot_reason ?? "Hot lead"} style={{ marginRight: 4 }}>🔥</span>}
+                      {conv.contact?.is_hot && (
+                        <span
+                          title={`${conv.contact.hot_reason ?? "Hot lead"} · Priority ${hotScore(conv)}/100`}
+                          style={{
+                            marginRight: 6, padding: "1px 7px", borderRadius: 999, fontSize: 11, fontWeight: 700,
+                            background: hotScore(conv) >= 80 ? "#fde8e8" : "#fff1e0",
+                            color: hotScore(conv) >= 80 ? "#c62828" : "#c2620a",
+                          }}
+                        >🔥 {hotScore(conv)}</span>
+                      )}
                       {conv.contact?.name || conv.contact?.phone || conv.contact?.wa_id || "Unknown"}
                     </span>
                     <span style={{ display: "flex", alignItems: "center", gap: 6 }}>

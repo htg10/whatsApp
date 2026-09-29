@@ -6,6 +6,13 @@ import { getToken } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingBlock } from "@/components/Preloader";
 
+function priority(score: number | undefined): { label: string; bg: string; fg: string } {
+  const n = score ?? 50;
+  if (n >= 80) return { label: "High", bg: "#fde8e8", fg: "#c62828" };
+  if (n >= 50) return { label: "Medium", bg: "#fff1e0", fg: "#c2620a" };
+  return { label: "Low", bg: "#eef1f2", fg: "#54656f" };
+}
+
 function timeAgo(iso: string | null | undefined): string {
   if (!iso) return "—";
   const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -48,7 +55,7 @@ export default function HotListPage() {
     <div>
       <PageHeader
         title="Hot List"
-        subtitle="Customers who showed interest in a chat. New hot leads appear here automatically."
+        subtitle="The AI picks customers who showed interest and ranks them. Highest priority is on top - contact them first."
       />
 
       {error && <div className="error">{error}</div>}
@@ -72,6 +79,7 @@ export default function HotListPage() {
             <thead>
               <tr style={{ textAlign: "left", fontSize: 12, color: "#667781", background: "#f8fafb", borderBottom: "1px solid #eef1f2" }}>
                 <th style={{ padding: "12px 14px", width: 56 }}>#</th>
+                <th style={{ padding: "12px 14px" }}>Priority</th>
                 <th style={{ padding: "12px 14px" }}>Name</th>
                 <th style={{ padding: "12px 14px" }}>Phone</th>
                 <th style={{ padding: "12px 14px" }}>Company</th>
@@ -84,6 +92,17 @@ export default function HotListPage() {
               {contacts.map((c, i) => (
                 <tr key={c.id} style={{ borderBottom: "1px solid #f4f6f7" }}>
                   <td style={{ padding: "12px 14px", color: "#667781", fontVariantNumeric: "tabular-nums" }}>{i + 1}</td>
+                  <td style={{ padding: "12px 14px", whiteSpace: "nowrap" }}>
+                    {(() => {
+                      const p = priority(c.hot_score);
+                      return (
+                        <span title={`AI priority score ${c.hot_score ?? 50}/100`}
+                          style={{ background: p.bg, color: p.fg, padding: "2px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700 }}>
+                          {p.label} · {c.hot_score ?? 50}
+                        </span>
+                      );
+                    })()}
+                  </td>
                   <td style={{ padding: "12px 14px", fontWeight: 600 }}>🔥 {c.name || "—"}</td>
                   <td style={{ padding: "12px 14px", fontFamily: "monospace" }}>{c.phone}</td>
                   <td style={{ padding: "12px 14px" }}>{c.company ?? "—"}</td>
