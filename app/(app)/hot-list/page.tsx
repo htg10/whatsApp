@@ -72,6 +72,7 @@ export default function HotListPage() {
           <div style={{ fontSize: 40 }}>🔥</div>
           <h3 style={{ margin: "12px 0 4px" }}>No hot leads yet</h3>
           <p className="muted">When a customer asks about price, a demo, or says they are interested, they will show up here.</p>
+          
         </div>
       ) : (
         <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
