@@ -8,7 +8,7 @@ import { getToken, clearToken } from "@/lib/auth";
 import { navFor } from "@/lib/nav";
 import { UserContext } from "@/lib/user-context";
 import { Preloader } from "@/components/Preloader";
-import { NoPlanGate } from "@/components/PlanGate";
+import { NoPlanGate, ExpiredBanner, ExpiredBlock, isAllowedWhenExpired } from "@/components/PlanGate";
 
 const ROLE_LABELS: Record<string, string> = {
   "super-admin": "Super Admin",
@@ -124,7 +124,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     user.subscription?.status === "active" ||
     user.subscription?.status === "trialing";
 
-  if (!hasActivePlan) {
+  const isExpired = !hasActivePlan && user.subscription?.status === "expired";
+
+  if (!hasActivePlan && !isExpired) {
     return <NoPlanGate user={user} onActivated={refreshUser} />;
   }
 
@@ -165,7 +167,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </aside>
         <main className="main">
           <TopBar user={user} onMenuToggle={() => setSidebarOpen((v) => !v)} />
-          <div className="main-content">{children}</div>
+          {isExpired && <ExpiredBanner planName={user.subscription?.plan_name ?? null} />}
+          <div className="main-content">
+            {isExpired && !isAllowedWhenExpired(pathname) ? <ExpiredBlock /> : children}
+          </div>
         </main>
       </div>
     </UserContext.Provider>

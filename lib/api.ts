@@ -57,6 +57,12 @@ export const api = {
 
   me: (token: string) => request<{ user: User }>("/auth/me", { token }),
 
+  updateProfile: (token: string, body: { name?: string; email?: string; phone?: string }) =>
+    request<{ user: User }>("/auth/profile", { method: "PUT", body, token }),
+
+  changePassword: (token: string, body: { current_password?: string; password: string; password_confirmation: string }) =>
+    request<{ message: string }>("/auth/change-password", { method: "POST", body, token }),
+
   ping: (token: string) => request<{ pong: boolean; tenant_id: number }>("/ping", { token }),
 
   health: () => request<{ status: string }>("/health"),
@@ -557,7 +563,7 @@ export type User = {
   plan_features: string[] | null;
   /** Numeric plan limits (key => int, or null = unlimited). 0 = blocked. null map = no gating. */
   plan_limits: Record<string, number | null> | null;
-  subscription: { status: string; plan_name: string } | null;
+  subscription: { status: string; plan_name: string; current_period_end: string | null } | null;
   tenant: Tenant | null;
   last_login_at: string | null;
 };

@@ -64,6 +64,41 @@ function loadRazorpay(): Promise<boolean> {
   });
 }
 
+const ALLOWED_WHEN_EXPIRED = ["/billing", "/whatsapp", "/dashboard", "/profile"];
+
+export function isAllowedWhenExpired(pathname: string): boolean {
+  return ALLOWED_WHEN_EXPIRED.some((p) => pathname === p || pathname.startsWith(p + "/"));
+}
+
+export function ExpiredBanner({ planName }: { planName: string | null }) {
+  return (
+    <div style={{ background: "#fef3cd", color: "#856404", padding: "10px 18px", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, borderBottom: "1px solid #ffc107" }}>
+      <span>
+        <strong>Your {planName ?? ""} plan has expired.</strong> Renew to continue using all features. WhatsApp numbers remain connected.
+      </span>
+      <Link href="/billing" className="btn" style={{ fontSize: 13, padding: "6px 18px", whiteSpace: "nowrap", textDecoration: "none" }}>
+        Renew Plan
+      </Link>
+    </div>
+  );
+}
+
+export function ExpiredBlock() {
+  return (
+    <div className="panel" style={{ textAlign: "center", padding: "48px 24px", maxWidth: 560, margin: "40px auto" }}>
+      <div style={{ fontSize: 46 }}>⏰</div>
+      <h2 style={{ margin: "14px 0 6px" }}>Plan Expired</h2>
+      <p className="muted" style={{ marginBottom: 4 }}>
+        Your subscription has ended. Renew your plan to access this feature.
+      </p>
+      <p className="muted" style={{ marginBottom: 22 }}>Your WhatsApp numbers are still connected and will resume working once you renew.</p>
+      <Link href="/billing" className="btn" style={{ display: "inline-block", width: "auto", padding: "12px 28px", textDecoration: "none" }}>
+        View Plans &amp; Renew
+      </Link>
+    </div>
+  );
+}
+
 export function NoPlanGate({ user, onActivated }: { user: User; onActivated: () => void }) {
   const [plans, setPlans] = useState<PlanItem[]>([]);
   const [gstRate, setGstRate] = useState(18);
