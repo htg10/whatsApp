@@ -126,6 +126,7 @@ export default function InboxPage() {
   const [loading, setLoading] = useState(true);
   const [msgLoading, setMsgLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [listError, setListError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<string>("all");
   const [agentFilter, setAgentFilter] = useState<string>("");
@@ -203,8 +204,9 @@ export default function InboxPage() {
         per_page: 500,
       });
       setConversations(res.conversations);
+      setListError(null);
     } catch (err) {
-      setError((err as ApiError).message);
+      setListError((err as ApiError).message || "Could not load conversations.");
     } finally {
       setLoading(false);
     }
@@ -785,6 +787,10 @@ export default function InboxPage() {
         <div className="convo-list-items">
           {loading ? (
             <div style={{ padding: 20, color: "var(--muted)", textAlign: "center" }}>Loading...</div>
+          ) : listError && conversations.length === 0 ? (
+            <div className="error" style={{ margin: 12, borderRadius: 8 }}>
+              Couldn&apos;t load conversations: {listError}
+            </div>
           ) : displayedConversations.length === 0 ? (
             <div style={{ padding: 20, color: "var(--muted)", textAlign: "center" }}>
               {hotOnly ? "No hot leads yet. Contacts who show interest appear here." : stickyOnly ? "No sticky chats yet. Tap the 📌 on a chat to pin it." : agentFilter ? "No chats for this agent." : "No conversations yet. Send a message from the WhatsApp page, or wait for incoming messages after configuring webhooks."}
