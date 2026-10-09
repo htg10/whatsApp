@@ -183,11 +183,12 @@ export const api = {
   },
 
   inbox: {
-    conversations: (token: string, params?: { status?: string; search?: string; page?: number }) => {
+    conversations: (token: string, params?: { status?: string; search?: string; page?: number; per_page?: number }) => {
       const qs = new URLSearchParams();
       if (params?.status) qs.set("status", params.status);
       if (params?.search) qs.set("search", params.search);
       if (params?.page) qs.set("page", String(params.page));
+      if (params?.per_page) qs.set("per_page", String(params.per_page));
       const q = qs.toString();
       return request<{ conversations: Conversation[]; meta: { current_page: number; last_page: number; total: number } }>(
         `/whatsapp/conversations${q ? `?${q}` : ""}`, { token }
@@ -399,6 +400,35 @@ export const api = {
       request<{ settings: InvoiceSettings }>("/admin/settings", { token }),
     updateSettings: (token: string, body: Partial<InvoiceSettings>) =>
       request<{ settings: InvoiceSettings; message: string }>("/admin/settings", { method: "PUT", body, token }),
+  },
+
+  support: {
+    list: (token: string, params?: { status?: string; search?: string; page?: number }) => {
+      const qs = new URLSearchParams();
+      if (params?.status) qs.set("status", params.status);
+      if (params?.search) qs.set("search", params.search);
+      if (params?.page) qs.set("page", String(params.page));
+      const q = qs.toString();
+      return request<{ tickets: SupportTicket[]; meta: { current_page: number; last_page: number; total: number } }>(
+        `/support${q ? `?${q}` : ""}`, { token }
+      );
+    },
+    create: (token: string, body: { subject: string; description: string; priority?: string; category?: string }) =>
+      request<{ ticket: SupportTicket }>("/support", { method: "POST", body, token }),
+    get: (token: string, id: string) =>
+      request<{ ticket: SupportTicket }>(`/support/${id}`, { token }),
+    adminList: (token: string, params?: { status?: string; search?: string; page?: number }) => {
+      const qs = new URLSearchParams();
+      if (params?.status) qs.set("status", params.status);
+      if (params?.search) qs.set("search", params.search);
+      if (params?.page) qs.set("page", String(params.page));
+      const q = qs.toString();
+      return request<{ tickets: (SupportTicket & { tenant_name: string })[]; meta: { current_page: number; last_page: number; total: number } }>(
+        `/support/admin/all${q ? `?${q}` : ""}`, { token }
+      );
+    },
+    reply: (token: string, id: string, body: { admin_reply: string; status?: string }) =>
+      request<{ ticket: SupportTicket }>(`/support/${id}/reply`, { method: "PUT", body, token }),
   },
 
   social: {
@@ -936,6 +966,23 @@ export type InvoiceSettings = {
   tax_details: string | null;
   invoice_prefix: string | null;
   gst_rate: number;
+};
+
+export type SupportTicket = {
+  id: string;
+  ticket_id: string;
+  subject: string;
+  description: string;
+  priority: string;
+  status: string;
+  category: string | null;
+  admin_reply: string | null;
+  replied_at: string | null;
+  resolved_at: string | null;
+  user_name: string;
+  user_email: string;
+  tenant_name?: string;
+  created_at: string | null;
 };
 
 export type SubscriptionItem2 = {

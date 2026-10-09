@@ -288,12 +288,21 @@ export default function ContactsPage() {
           </p>
           <div style={{ display: "flex", gap: 10, marginBottom: 8 }}>
             <button type="button" className="btn-mini" onClick={() => fileRef.current?.click()}>Upload CSV</button>
+            <button type="button" className="btn-mini" style={{ background: "#1a7f64", color: "#fff" }} onClick={() => {
+              const csv = "phone,name,email,company,tags\n919876543210,Rahul Sharma,rahul@example.com,Acme Inc,vip\n919812345678,Priya Verma,priya@example.com,Zenith Co,customer\n918800112233,Amit Yadav,amit@example.com,Nova Pvt Ltd,lead\n917722334455,Sneha Gupta,sneha@example.com,Bright Solutions,customer\n919911223344,Vikas Singh,vikas@example.com,Delta Systems,vip";
+              const blob = new Blob([csv], { type: "text/csv" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url; a.download = "sample-contacts.csv";
+              document.body.appendChild(a); a.click();
+              document.body.removeChild(a); URL.revokeObjectURL(url);
+            }}>Download Sample CSV</button>
             <input ref={fileRef} type="file" accept=".csv,.txt" style={{ display: "none" }} onChange={handleFile} />
           </div>
           <textarea
             value={importText}
             onChange={(e) => setImportText(e.target.value)}
-            placeholder={"phone,name,email,company,tags\n919876543210,John,john@example.com,Acme Inc,vip"}
+            placeholder={"phone,name,email,company,tags\n919876543210,Rahul Sharma,rahul@example.com,Acme Inc,vip\n919812345678,Priya Verma,priya@example.com,Zenith Co,customer"}
             rows={8}
             style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, fontSize: 13, fontFamily: "monospace", resize: "vertical" }}
           />

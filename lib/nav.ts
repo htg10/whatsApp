@@ -25,6 +25,7 @@ export const NAV: NavItem[] = [
   { label: "WhatsApp", href: "/whatsapp", icon: "✆", perm: "whatsapp.view" },
   { label: "Team", href: "/team", icon: "👥", perm: "team.view" },
   { label: "Billing", href: "/billing", icon: "₹", perm: "billing.view" },
+  { label: "Support", href: "/support", icon: "🎫" },
 ];
 
 // Platform super-admin navigation.
@@ -33,6 +34,7 @@ export const SUPER_ADMIN_NAV: NavItem[] = [
   { label: "Companies", href: "/companies", icon: "🏢" },
   { label: "Plans", href: "/plans", icon: "💳" },
   { label: "Settings", href: "/settings", icon: "⚙" },
+  { label: "Support", href: "/support", icon: "🎫" },
   { label: "Profile", href: "/profile", icon: "👤" },
 ];
 

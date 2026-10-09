@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { api, ApiError, Conversation, InboxMessage, TemplateItem } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 
@@ -58,7 +59,7 @@ const ATTACH_OPTIONS = [
   { key: "sticker", label: "New sticker", icon: "😃", color: "#02a698", accept: "", enabled: false },
 ] as const;
 
-const FILTERS = ["all", "open", "pending", "resolved", "closed"] as const;
+const FILTERS = ["all", "open", "hot"] as const;
 
 function MediaBubble({ msg }: { msg: InboxMessage }) {
   const att = msg.attachments?.[0];
@@ -116,6 +117,9 @@ function MediaBubble({ msg }: { msg: InboxMessage }) {
 type MsgAction = { msgId: string; x: number; y: number };
 
 export default function InboxPage() {
+  const searchParams = useSearchParams();
+  const autoSelectWaId = useRef(searchParams.get("contact"));
+
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<InboxMessage[]>([]);
@@ -194,8 +198,9 @@ export default function InboxPage() {
     if (!token) return;
     try {
       const res = await api.inbox.conversations(token, {
-        status: filter === "all" ? undefined : filter,
+        status: filter === "all" || filter === "hot" ? undefined : filter,
         search: search || undefined,
+        per_page: 500,
       });
       setConversations(res.conversations);
     } catch (err) {
@@ -207,7 +212,17 @@ export default function InboxPage() {
 
   useEffect(() => {
     setLoading(true);
-    loadConversations();
+    loadConversations().then(() => {
+      if (autoSelectWaId.current) {
+        const waId = autoSelectWaId.current;
+        autoSelectWaId.current = null;
+        setConversations((prev) => {
+          const match = prev.find((c) => c.contact?.wa_id === waId || c.contact?.phone === waId);
+          if (match) setTimeout(() => selectConversation(match), 0);
+          return prev;
+        });
+      }
+    });
     pollRef.current = setInterval(loadConversations, 15000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [loadConversations]);
@@ -408,9 +423,12 @@ export default function InboxPage() {
       else await api.agents.unassign(token, { conversation_id: activeId });
       setAssignOpen(false);
       await loadConversations();
+      if (activeId) await loadMessages(activeId);
       showToast(agentId ? "Chat transferred." : "Chat unassigned.");
     } catch (err) {
-      setError((err as ApiError).message);
+      const e2 = err as ApiError;
+      setAssignOpen(false);
+      showToast(e2.message || "Failed to assign agent. Check permissions.");
     } finally {
       setAssigning(false);
     }
@@ -580,10 +598,15 @@ export default function InboxPage() {
   const displayedConversations = conversations
     .filter((c) => !agentFilter || c.assigned_agent?.name === agentFilter)
     .filter((c) => !stickyOnly || sticky.has(c.id))
-    .filter((c) => !hotOnly || c.contact?.is_hot)
+    .filter((c) => !hotOnly && filter !== "hot" || c.contact?.is_hot)
     .slice()
-    // AI-selected hot leads first (highest priority score on top), then pinned chats.
-    .sort((a, b) => (hotScore(b) - hotScore(a)) || ((sticky.has(b.id) ? 1 : 0) - (sticky.has(a.id) ? 1 : 0)));
+    .sort((a, b) => {
+      const stickyDiff = (sticky.has(b.id) ? 1 : 0) - (sticky.has(a.id) ? 1 : 0);
+      if (stickyDiff !== 0) return stickyDiff;
+      const tA = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+      const tB = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+      return tB - tA;
+    });
 
   // Chats whose last activity was today (approx. "active today").
   const todayCount = conversations.filter((c) => {
@@ -755,7 +778,7 @@ export default function InboxPage() {
               className={`filter-tab ${filter === f ? "active" : ""}`}
               onClick={() => setFilter(f)}
             >
-              {f.charAt(0).toUpperCase() + f.slice(1)}
+              {f === "hot" ? "🔥 Hot" : f.charAt(0).toUpperCase() + f.slice(1)}
             </div>
           ))}
         </div>

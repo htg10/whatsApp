@@ -64,7 +64,7 @@ function loadRazorpay(): Promise<boolean> {
   });
 }
 
-const ALLOWED_WHEN_EXPIRED = ["/billing", "/whatsapp", "/dashboard", "/profile"];
+const ALLOWED_WHEN_EXPIRED = ["/billing", "/whatsapp", "/dashboard", "/profile", "/support"];
 
 export function isAllowedWhenExpired(pathname: string): boolean {
   return ALLOWED_WHEN_EXPIRED.some((p) => pathname === p || pathname.startsWith(p + "/"));

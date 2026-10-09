@@ -113,7 +113,7 @@ export default function HotListPage() {
                   <td style={{ padding: "12px 14px", color: "#667781", whiteSpace: "nowrap" }}>{timeAgo(c.hot_at)}</td>
                   <td style={{ padding: "12px 14px", textAlign: "right", whiteSpace: "nowrap" }}>
                     <a className="btn-mini" style={{ textDecoration: "none" }}
-                      href={`https://wa.me/${c.wa_id}`} target="_blank" rel="noreferrer">WhatsApp</a>
+                      href={`/inbox?contact=${c.wa_id || c.phone}`}>WhatsApp</a>
                   </td>
                 </tr>
               ))}
