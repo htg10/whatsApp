@@ -81,31 +81,31 @@ export default function CampaignsPage() {
   const [bulkVars, setBulkVars] = useState<string[]>([]);
   const [bulkDetail, setBulkDetail] = useState<BulkSendDetail | null>(null);
 
-  const loadCampaigns = useCallback(async () => {
+  const loadCampaigns = useCallback(async (silent = false) => {
     const token = getToken();
     if (!token) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const res = await api.campaigns.list(token);
       setCampaigns(res.campaigns);
     } catch (err) {
-      setError((err as ApiError).message);
+      if (!silent) setError((err as ApiError).message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
-  const loadBulkSends = useCallback(async () => {
+  const loadBulkSends = useCallback(async (silent = false) => {
     const token = getToken();
     if (!token) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const res = await api.bulk.list(token);
       setSends(res.bulk_sends);
     } catch (err) {
-      setError((err as ApiError).message);
+      if (!silent) setError((err as ApiError).message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -113,6 +113,34 @@ export default function CampaignsPage() {
     if (tab === "campaigns") loadCampaigns();
     else loadBulkSends();
   }, [tab, loadCampaigns, loadBulkSends]);
+
+  // Poll while anything is still sending. Each poll also lets the server pick up
+  // a run whose background worker was stopped by the host.
+  const bulkActive = sends.some((s) => s.status === "processing") || bulkDetail?.status === "processing";
+  const campaignActive = campaigns.some((c) => c.status === "running") || detail?.status === "running";
+  const activeBulkDetailId = bulkDetail?.status === "processing" ? bulkDetail.uuid : null;
+  const activeCampaignDetailId = detail?.status === "running" ? detail.id : null;
+
+  useEffect(() => {
+    const active = tab === "bulk" ? bulkActive : campaignActive;
+    if (!active) return;
+    const timer = setInterval(async () => {
+      const token = getToken();
+      if (!token) return;
+      if (tab === "bulk") {
+        loadBulkSends(true);
+        if (activeBulkDetailId) {
+          try { setBulkDetail((await api.bulk.get(token, activeBulkDetailId)).bulk_send); } catch {}
+        }
+      } else {
+        loadCampaigns(true);
+        if (activeCampaignDetailId) {
+          try { setDetail((await api.campaigns.get(token, activeCampaignDetailId)).campaign); } catch {}
+        }
+      }
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [tab, bulkActive, campaignActive, activeBulkDetailId, activeCampaignDetailId, loadBulkSends, loadCampaigns]);
 
   async function openCreateForm() {
     const token = getToken();
@@ -251,13 +279,15 @@ export default function CampaignsPage() {
     setSubmitting(true);
     setError(null);
     try {
-      await api.bulk.send(token, {
+      const { bulk_send: bs } = await api.bulk.send(token, {
         numbers: nums,
         template: bulkTemplate,
         language: bulkLang,
         ...(bulkVars.length > 0 ? { variables: bulkVars } : {}),
       });
-      setNotice(`Bulk send started to ${nums.length} numbers.`);
+      setNotice(bs.status === "processing"
+        ? `Sending to ${bs.total} numbers — ${bs.sent_count} sent so far. This list updates automatically.`
+        : `Bulk send finished: ${bs.sent_count} sent, ${bs.failed_count} failed.`);
       setShowBulk(false);
       setBulkNumbers("");
       loadBulkSends();

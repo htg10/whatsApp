@@ -20,12 +20,14 @@ export default function AppError({ error, reset }: { error: Error & { digest?: s
       <p className="muted" style={{ marginBottom: 16 }}>
         The page hit an unexpected error. You can try again, or reload.
       </p>
-      <pre style={{
-        textAlign: "left", background: "#fdecec", color: "#8a1f1f", padding: "10px 12px",
-        borderRadius: 8, fontSize: 12, whiteSpace: "pre-wrap", wordBreak: "break-word", marginBottom: 16,
-      }}>
-        {error?.message || "Unknown error"}{error?.digest ? `\n\nDigest: ${error.digest}` : ""}
-      </pre>
+      {process.env.NODE_ENV === "development" && (
+        <pre style={{
+          textAlign: "left", background: "#fdecec", color: "#8a1f1f", padding: "10px 12px",
+          borderRadius: 8, fontSize: 12, whiteSpace: "pre-wrap", wordBreak: "break-word", marginBottom: 16,
+        }}>
+          {error?.message || "Unknown error"}{error?.digest ? `\n\nDigest: ${error.digest}` : ""}
+        </pre>
+      )}
       <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
         <button className="btn" onClick={() => reset()}>Try again</button>
         <button className="btn-mini" onClick={() => location.reload()}>Reload page</button>

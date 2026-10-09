@@ -6,10 +6,21 @@ import { getToken } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
 import { EmbeddedSignupButton } from "@/components/EmbeddedSignupButton";
 
+const QUALITY: Record<string, { label: string; color: string; bg: string; hint: string }> = {
+  GREEN: { label: "High", color: "#0a7d47", bg: "#e7f7ef", hint: "Meta quality rating: GREEN (high)." },
+  YELLOW: { label: "Medium", color: "#b7791f", bg: "#fdf4dd", hint: "Meta quality rating: YELLOW (medium). Reduce blocks/reports to improve it." },
+  RED: { label: "Low", color: "#c53030", bg: "#fdecec", hint: "Meta quality rating: RED (low). Sending limits may be reduced." },
+};
+
 function QualityBadge({ rating }: { rating: string | null }) {
-  const color = rating === "GREEN" ? "#0a7d47" : rating === "YELLOW" ? "#b7791f" : rating === "RED" ? "#c53030" : "#667781";
-  const bg = rating === "GREEN" ? "#e7f7ef" : rating === "YELLOW" ? "#fdf4dd" : rating === "RED" ? "#fdecec" : "#eef1f2";
-  return <span style={{ background: bg, color, padding: "2px 9px", borderRadius: 999, fontSize: 12, fontWeight: 600 }}>{rating ?? "—"}</span>;
+  const q = rating ? QUALITY[rating.toUpperCase()] : undefined;
+  const label = q?.label ?? (rating ? "Not rated yet" : "—");
+  const hint = q?.hint ?? "Meta has not rated this number yet. New numbers get a quality rating after they send enough messages (usually a few days of activity). Use Sync to refresh.";
+  return (
+    <span title={hint} style={{ background: q?.bg ?? "#eef1f2", color: q?.color ?? "#667781", padding: "2px 9px", borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: "help" }}>
+      {label}
+    </span>
+  );
 }
 
 const EMPTY_FORM = { waba_id: "", phone_number_id: "", display_phone_number: "", access_token: "", name: "" };
