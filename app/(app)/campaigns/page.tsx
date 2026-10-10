@@ -79,6 +79,7 @@ export default function CampaignsPage() {
   const [bulkTemplate, setBulkTemplate] = useState("test_welcome");
   const [bulkLang, setBulkLang] = useState("en");
   const [bulkVars, setBulkVars] = useState<string[]>([]);
+  const [bulkHeaderUrl, setBulkHeaderUrl] = useState("");
   const [bulkDetail, setBulkDetail] = useState<BulkSendDetail | null>(null);
 
   const loadCampaigns = useCallback(async (silent = false) => {
@@ -175,6 +176,7 @@ export default function CampaignsPage() {
         const matches = body?.text?.match(/\{\{\s*(\d+)\s*\}\}/g);
         const count = matches ? Math.max(...matches.map((m) => parseInt(m.replace(/\D/g, ""), 10))) : 0;
         setBulkVars(Array(count).fill(""));
+        setBulkHeaderUrl("");
       }
     } catch {}
   }
@@ -189,12 +191,22 @@ export default function CampaignsPage() {
     return Math.max(...matches.map((m) => parseInt(m.replace(/\D/g, ""), 10)));
   }
 
+  // Media HEADER format of a template (IMAGE / VIDEO / DOCUMENT), or null for
+  // text/none. Such templates need a public media URL supplied at send time.
+  function templateHeaderMedia(name: string): "IMAGE" | "VIDEO" | "DOCUMENT" | null {
+    const tpl = templates.find((t) => t.name === name);
+    const header = tpl?.components?.find((c) => (c.type || "").toUpperCase() === "HEADER");
+    const fmt = (header?.format || "").toUpperCase();
+    return fmt === "IMAGE" || fmt === "VIDEO" || fmt === "DOCUMENT" ? fmt : null;
+  }
+
   // When a template is picked, set its name, language, and reset variable slots.
   function pickBulkTemplate(name: string) {
     setBulkTemplate(name);
     const tpl = templates.find((t) => t.name === name);
     if (tpl?.language) setBulkLang(tpl.language);
     setBulkVars(Array(templateVarCount(name)).fill(""));
+    setBulkHeaderUrl("");
   }
 
   async function createCampaign(e: React.FormEvent) {
@@ -276,6 +288,11 @@ export default function CampaignsPage() {
       setError("Please fill in all template variables before sending.");
       return;
     }
+    const headerMedia = templateHeaderMedia(bulkTemplate);
+    if (headerMedia && !bulkHeaderUrl.trim()) {
+      setError(`This template has an ${headerMedia.toLowerCase()} header. Please paste a public ${headerMedia.toLowerCase()} URL.`);
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -284,12 +301,14 @@ export default function CampaignsPage() {
         template: bulkTemplate,
         language: bulkLang,
         ...(bulkVars.length > 0 ? { variables: bulkVars } : {}),
+        ...(headerMedia ? { header_media_url: bulkHeaderUrl.trim() } : {}),
       });
       setNotice(bs.status === "processing"
         ? `Sending to ${bs.total} numbers — ${bs.sent_count} sent so far. This list updates automatically.`
         : `Bulk send finished: ${bs.sent_count} sent, ${bs.failed_count} failed.`);
       setShowBulk(false);
       setBulkNumbers("");
+      setBulkHeaderUrl("");
       loadBulkSends();
     } catch (err) {
       const e = err as ApiError;
@@ -587,6 +606,20 @@ export default function CampaignsPage() {
                 <span className="muted" style={{ fontSize: 12, marginTop: 4, display: "block" }}>Auto-set from template; change if needed.</span>
               </div>
             </div>
+            {templateHeaderMedia(bulkTemplate) && (
+              <div className="field">
+                <label>Header {templateHeaderMedia(bulkTemplate)!.toLowerCase()} URL</label>
+                <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+                  This template shows a {templateHeaderMedia(bulkTemplate)!.toLowerCase()} on top. Paste a public, direct URL (https://…) to the {templateHeaderMedia(bulkTemplate)!.toLowerCase()}.
+                </div>
+                <input
+                  value={bulkHeaderUrl}
+                  onChange={(e) => setBulkHeaderUrl(e.target.value)}
+                  placeholder="https://example.com/banner.jpg"
+                  style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, fontSize: 14 }}
+                />
+              </div>
+            )}
             {bulkVars.length > 0 && (
               <div className="field">
                 <label>Template variables</label>
