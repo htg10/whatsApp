@@ -402,6 +402,13 @@ export const api = {
       request<{ settings: InvoiceSettings; message: string }>("/admin/settings", { method: "PUT", body, token }),
   },
 
+  assistant: {
+    ask: (token: string, question: string) =>
+      request<{ answer: string; snapshot: Record<string, number | string> }>(
+        "/assistant/ask", { method: "POST", body: { question }, token }
+      ),
+  },
+
   support: {
     list: (token: string, params?: { status?: string; search?: string; page?: number }) => {
       const qs = new URLSearchParams();

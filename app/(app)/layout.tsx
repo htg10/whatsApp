@@ -9,6 +9,7 @@ import { navFor } from "@/lib/nav";
 import { UserContext } from "@/lib/user-context";
 import { Preloader } from "@/components/Preloader";
 import { NoPlanGate, ExpiredBanner, ExpiredBlock, isAllowedWhenExpired } from "@/components/PlanGate";
+import { AssistantWidget } from "@/components/AssistantWidget";
 
 const ROLE_LABELS: Record<string, string> = {
   "super-admin": "Super Admin",
@@ -56,6 +57,7 @@ function TopBar({ user, onMenuToggle }: { user: User; onMenuToggle: () => void }
       <button className="menu-toggle" onClick={onMenuToggle} aria-label="Toggle menu">☰</button>
       <div className="appbar-title">{user.tenant?.company_name ?? user.tenant?.name ?? "Heltog SocialFlow"}</div>
       <div className="appbar-actions">
+        <AssistantWidget />
         <div style={{ position: "relative" }}>
           <button className="appbar-btn" title="Notifications" onClick={() => setNotifOpen((v) => !v)}>🔔</button>
           {notifOpen && (
