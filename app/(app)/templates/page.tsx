@@ -46,6 +46,8 @@ type BuilderState = {
   language: string;
   header_format: TemplateCreateBody["header_format"];
   header_text: string;
+  header_handle: string;
+  header_sample_name: string;
   body: string;
   footer: string;
   buttons: TemplateButton[];
@@ -58,6 +60,8 @@ const EMPTY_BUILDER: BuilderState = {
   language: "en",
   header_format: "NONE",
   header_text: "",
+  header_handle: "",
+  header_sample_name: "",
   body: "Hi {{1}}, thanks for choosing us! Your order {{2}} is confirmed. 🎉",
   footer: "",
   buttons: [],
@@ -88,6 +92,24 @@ export default function TemplatesPage() {
   const [showBuilder, setShowBuilder] = useState(false);
   const [b, setB] = useState<BuilderState>({ ...EMPTY_BUILDER });
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  async function uploadHeaderSample(file: File) {
+    const token = getToken();
+    if (!token) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const { header_handle } = await api.templates.uploadSample(token, file);
+      setB((s) => ({ ...s, header_handle, header_sample_name: file.name }));
+    } catch (err) {
+      const e = err as ApiError;
+      setError(e.errors ? Object.values(e.errors).flat().join(". ") : e.message);
+      setB((s) => ({ ...s, header_handle: "", header_sample_name: "" }));
+    } finally {
+      setUploading(false);
+    }
+  }
 
   const load = useCallback(async () => {
     const token = getToken();
@@ -193,12 +215,19 @@ export default function TemplatesPage() {
     setSaving(true);
     setError(null);
     try {
+      const isMediaHeader = ["IMAGE", "VIDEO", "DOCUMENT"].includes(b.header_format ?? "");
+      if (isMediaHeader && !b.header_handle) {
+        setError(`Please upload a sample ${b.header_format?.toLowerCase()} for the header before submitting.`);
+        setSaving(false);
+        return;
+      }
       const body: TemplateCreateBody = {
         name: b.name.trim().toLowerCase().replace(/[^a-z0-9_]+/g, "_"),
         language: b.language,
         category: b.category,
         header_format: b.header_format,
         header_text: b.header_format === "TEXT" ? b.header_text : undefined,
+        header_handle: isMediaHeader ? b.header_handle : undefined,
         body: b.body,
         body_example: nVars > 0 ? b.body_example : undefined,
         footer: b.footer || undefined,
@@ -393,14 +422,27 @@ export default function TemplatesPage() {
 
                 <div className="field">
                   <label>Header <span className="muted">(optional)</span></label>
-                  <select value={b.header_format} onChange={(e) => setB((s) => ({ ...s, header_format: e.target.value as BuilderState["header_format"] }))}>
+                  <select value={b.header_format} onChange={(e) => setB((s) => ({ ...s, header_format: e.target.value as BuilderState["header_format"], header_handle: "", header_sample_name: "" }))}>
                     {HEADER_FORMATS.map((f) => <option key={f} value={f}>{f === "NONE" ? "None" : f.charAt(0) + f.slice(1).toLowerCase()}</option>)}
                   </select>
                   {b.header_format === "TEXT" && (
                     <input style={{ marginTop: 8 }} maxLength={60} value={b.header_text} onChange={(e) => setB((s) => ({ ...s, header_text: e.target.value }))} placeholder="Header text (max 60 chars)" />
                   )}
                   {["IMAGE", "VIDEO", "DOCUMENT"].includes(b.header_format ?? "") && (
-                    <span className="muted" style={{ fontSize: 12 }}>The {b.header_format?.toLowerCase()} is attached when you send the template.</span>
+                    <div style={{ marginTop: 8 }}>
+                      <input
+                        type="file"
+                        accept={b.header_format === "IMAGE" ? "image/jpeg,image/png" : b.header_format === "VIDEO" ? "video/mp4" : "application/pdf"}
+                        disabled={uploading}
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadHeaderSample(f); }}
+                        style={{ fontSize: 13 }}
+                      />
+                      <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                        {uploading ? "Uploading sample…"
+                          : b.header_handle ? `✓ Sample uploaded${b.header_sample_name ? `: ${b.header_sample_name}` : ""}`
+                          : `Meta needs a sample ${b.header_format?.toLowerCase()} to review this template. Max 5MB.`}
+                      </div>
+                    </div>
                   )}
                 </div>
 

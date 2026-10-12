@@ -149,6 +149,21 @@ export const api = {
       request<{ template: TemplateItem }>(`/templates/${id}`, { token }),
     sync: (token: string) =>
       request<{ message: string; synced: number }>("/templates/sync", { method: "POST", token }),
+    uploadSample: async (token: string, file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(`${BASE}/templates/upload-sample`, {
+        method: "POST",
+        headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+        body: form,
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || (json && json.success === false)) {
+        const err: ApiError = { message: json?.message ?? `Upload failed (${res.status})`, errors: json?.errors, status: res.status };
+        throw err;
+      }
+      return json.data as { header_handle: string };
+    },
     create: (token: string, body: TemplateCreateBody) =>
       request<{ template: TemplateItem; message: string }>("/templates", { method: "POST", body, token }),
     remove: (token: string, id: string) =>
@@ -689,6 +704,7 @@ export type TemplateCreateBody = {
   waba_id?: string;
   header_format?: "NONE" | "TEXT" | "IMAGE" | "VIDEO" | "DOCUMENT";
   header_text?: string;
+  header_handle?: string;
   body: string;
   body_example?: string[];
   footer?: string;
