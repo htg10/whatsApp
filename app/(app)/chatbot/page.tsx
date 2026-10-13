@@ -53,8 +53,15 @@ export default function ChatbotPage() {
   const [ai, setAi] = useState({ enabled: false, instructions: "" });
   const [aiSaving, setAiSaving] = useState(false);
 
+  // Follow-up settings (per bot)
+  const [followup, setFollowup] = useState({ enabled: false, message: "" });
+  const [followupSaving, setFollowupSaving] = useState(false);
+
   useEffect(() => {
-    if (bot) setAi({ enabled: !!bot.ai_enabled, instructions: bot.ai_instructions ?? "" });
+    if (bot) {
+      setAi({ enabled: !!bot.ai_enabled, instructions: bot.ai_instructions ?? "" });
+      setFollowup({ enabled: !!bot.followup_enabled, message: bot.followup_message ?? "" });
+    }
   }, [bot]);
 
   async function saveAi() {
@@ -70,6 +77,22 @@ export default function ChatbotPage() {
       setError((err as ApiError).message);
     } finally {
       setAiSaving(false);
+    }
+  }
+
+  async function saveFollowup() {
+    const token = getToken();
+    if (!token || !bot) return;
+    setFollowupSaving(true);
+    setError(null);
+    try {
+      const res = await api.chatbot.update(token, bot.id, { followup_enabled: followup.enabled, followup_message: followup.message || null });
+      setBot((b) => (b ? { ...b, followup_enabled: res.chatbot.followup_enabled, followup_message: res.chatbot.followup_message } : b));
+      flash("Follow-up settings saved.");
+    } catch (err) {
+      setError((err as ApiError).message);
+    } finally {
+      setFollowupSaving(false);
     }
   }
 
@@ -357,6 +380,35 @@ export default function ChatbotPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
             <span className="muted" style={{ fontSize: 12 }}>{ai.instructions.length}/8000 · Needs an AI API key (Gemini or Claude) configured on the server.</span>
             <button className="btn" style={{ width: "auto", padding: "9px 18px" }} disabled={aiSaving} onClick={saveAi}>{aiSaving ? "Saving…" : "Save AI settings"}</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Auto follow-ups */}
+      <div className="panel" style={{ marginBottom: 16, borderLeft: "3px solid #e8622d" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+          <div>
+            <h3 style={{ margin: 0 }}>🔔 Auto Follow-up <span className="muted" style={{ fontSize: 12, fontWeight: 400 }}>(nudge quiet customers)</span></h3>
+            <p className="muted" style={{ fontSize: 13, margin: "4px 0 0" }}>Agar customer reply na kare, to 24 ghante mein <b>2 baar</b> auto message jaata hai — <b>6 ghante</b> aur <b>12 ghante</b> par. Customer ke reply karte hi ruk jaata hai.</p>
+          </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
+            <input type="checkbox" checked={followup.enabled} onChange={(e) => setFollowup((f) => ({ ...f, enabled: e.target.checked }))} />
+            Follow-up {followup.enabled ? "ON" : "OFF"}
+          </label>
+        </div>
+        <div className="field" style={{ marginTop: 12, marginBottom: 0 }}>
+          <label>Follow-up message</label>
+          <textarea
+            value={followup.message}
+            onChange={(e) => setFollowup((f) => ({ ...f, message: e.target.value }))}
+            rows={2}
+            maxLength={1000}
+            placeholder={"Hi! Aap aage process karna chahte hain? Koi sawaal ho to bataiye, hum madad ke liye yahin hain."}
+            style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, fontSize: 14, fontFamily: "inherit", resize: "vertical" }}
+          />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
+            <span className="muted" style={{ fontSize: 12 }}>Khaali chhodne par ek default message chala jaata hai. 24h window ke andar hi bhejta hai.</span>
+            <button className="btn" style={{ width: "auto", padding: "9px 18px" }} disabled={followupSaving} onClick={saveFollowup}>{followupSaving ? "Saving…" : "Save follow-up"}</button>
           </div>
         </div>
       </div>
