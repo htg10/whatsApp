@@ -193,8 +193,25 @@ export const api = {
     },
     get: (token: string, id: string) =>
       request<{ bulk_send: BulkSendDetail }>(`/whatsapp/bulk-sends/${id}`, { token }),
-    send: (token: string, body: { numbers: string[]; template: string; language?: string; variables?: string[]; header_media_url?: string }) =>
+    send: (token: string, body: { numbers: string[]; template: string; language?: string; variables?: string[]; header_media_url?: string; header_media_id?: string }) =>
       request<{ bulk_send: BulkSendDetail }>("/whatsapp/bulk-send", { method: "POST", body, token }),
+    retry: (token: string, id: string) =>
+      request<{ bulk_send: BulkSendDetail }>(`/whatsapp/bulk-sends/${id}/retry`, { method: "POST", token }),
+    uploadHeader: async (token: string, file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(`${BASE}/whatsapp/bulk-send/upload-header`, {
+        method: "POST",
+        headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+        body: form,
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || (json && json.success === false)) {
+        const err: ApiError = { message: json?.message ?? `Upload failed (${res.status})`, errors: json?.errors, status: res.status };
+        throw err;
+      }
+      return json.data as { media_id: string };
+    },
   },
 
   inbox: {

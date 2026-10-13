@@ -80,6 +80,11 @@ export default function CampaignsPage() {
   const [bulkLang, setBulkLang] = useState("en");
   const [bulkVars, setBulkVars] = useState<string[]>([]);
   const [bulkHeaderUrl, setBulkHeaderUrl] = useState("");
+  const [bulkHeaderMode, setBulkHeaderMode] = useState<"upload" | "url">("upload");
+  const [bulkHeaderId, setBulkHeaderId] = useState("");
+  const [bulkHeaderName, setBulkHeaderName] = useState("");
+  const [bulkHeaderUploading, setBulkHeaderUploading] = useState(false);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
   const [bulkDetail, setBulkDetail] = useState<BulkSendDetail | null>(null);
 
   const loadCampaigns = useCallback(async (silent = false) => {
@@ -176,7 +181,7 @@ export default function CampaignsPage() {
         const matches = body?.text?.match(/\{\{\s*(\d+)\s*\}\}/g);
         const count = matches ? Math.max(...matches.map((m) => parseInt(m.replace(/\D/g, ""), 10))) : 0;
         setBulkVars(Array(count).fill(""));
-        setBulkHeaderUrl("");
+        setBulkHeaderUrl(""); setBulkHeaderId(""); setBulkHeaderName("");
       }
     } catch {}
   }
@@ -206,7 +211,7 @@ export default function CampaignsPage() {
     const tpl = templates.find((t) => t.name === name);
     if (tpl?.language) setBulkLang(tpl.language);
     setBulkVars(Array(templateVarCount(name)).fill(""));
-    setBulkHeaderUrl("");
+    setBulkHeaderUrl(""); setBulkHeaderId(""); setBulkHeaderName("");
   }
 
   async function createCampaign(e: React.FormEvent) {
@@ -289,8 +294,11 @@ export default function CampaignsPage() {
       return;
     }
     const headerMedia = templateHeaderMedia(bulkTemplate);
-    if (headerMedia && !bulkHeaderUrl.trim()) {
-      setError(`This template has an ${headerMedia.toLowerCase()} header. Please paste a public ${headerMedia.toLowerCase()} URL.`);
+    const hasHeaderInput = bulkHeaderMode === "upload" ? !!bulkHeaderId : !!bulkHeaderUrl.trim();
+    if (headerMedia && !hasHeaderInput) {
+      setError(bulkHeaderMode === "upload"
+        ? `This template has an ${headerMedia.toLowerCase()} header. Please choose an ${headerMedia.toLowerCase()} file to upload.`
+        : `This template has an ${headerMedia.toLowerCase()} header. Please paste a public ${headerMedia.toLowerCase()} URL.`);
       return;
     }
     setSubmitting(true);
@@ -301,20 +309,58 @@ export default function CampaignsPage() {
         template: bulkTemplate,
         language: bulkLang,
         ...(bulkVars.length > 0 ? { variables: bulkVars } : {}),
-        ...(headerMedia ? { header_media_url: bulkHeaderUrl.trim() } : {}),
+        ...(headerMedia && bulkHeaderMode === "upload" ? { header_media_id: bulkHeaderId } : {}),
+        ...(headerMedia && bulkHeaderMode === "url" ? { header_media_url: bulkHeaderUrl.trim() } : {}),
       });
       setNotice(bs.status === "processing"
         ? `Sending to ${bs.total} numbers — ${bs.sent_count} sent so far. This list updates automatically.`
         : `Bulk send finished: ${bs.sent_count} sent, ${bs.failed_count} failed.`);
       setShowBulk(false);
       setBulkNumbers("");
-      setBulkHeaderUrl("");
+      setBulkHeaderUrl(""); setBulkHeaderId(""); setBulkHeaderName("");
       loadBulkSends();
     } catch (err) {
       const e = err as ApiError;
       setError(e.errors ? Object.values(e.errors).flat().join(". ") : e.message);
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function uploadBulkHeader(file: File) {
+    const token = getToken();
+    if (!token) return;
+    setBulkHeaderUploading(true);
+    setError(null);
+    try {
+      const { media_id } = await api.bulk.uploadHeader(token, file);
+      setBulkHeaderId(media_id);
+      setBulkHeaderName(file.name);
+    } catch (err) {
+      const e = err as ApiError;
+      setError(e.errors ? Object.values(e.errors).flat().join(". ") : e.message);
+      setBulkHeaderId(""); setBulkHeaderName("");
+    } finally {
+      setBulkHeaderUploading(false);
+    }
+  }
+
+  async function retryBulk(uuid: string) {
+    const token = getToken();
+    if (!token) return;
+    setRetryingId(uuid);
+    setError(null);
+    try {
+      const { bulk_send: bs } = await api.bulk.retry(token, uuid);
+      setNotice(bs.status === "processing"
+        ? "Retrying the failed numbers — the list updates automatically."
+        : `Retry finished: ${bs.sent_count} sent, ${bs.failed_count} still failed.`);
+      if (bulkDetail?.uuid === uuid) setBulkDetail(bs);
+      loadBulkSends();
+    } catch (err) {
+      setError((err as ApiError).message);
+    } finally {
+      setRetryingId(null);
     }
   }
 
@@ -606,20 +652,37 @@ export default function CampaignsPage() {
                 <span className="muted" style={{ fontSize: 12, marginTop: 4, display: "block" }}>Auto-set from template; change if needed.</span>
               </div>
             </div>
-            {templateHeaderMedia(bulkTemplate) && (
-              <div className="field">
-                <label>Header {templateHeaderMedia(bulkTemplate)!.toLowerCase()} URL</label>
-                <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
-                  This template shows a {templateHeaderMedia(bulkTemplate)!.toLowerCase()} on top. Paste a public, direct URL (https://…) to the {templateHeaderMedia(bulkTemplate)!.toLowerCase()}.
+            {templateHeaderMedia(bulkTemplate) && (() => {
+              const fmt = templateHeaderMedia(bulkTemplate)!.toLowerCase();
+              const accept = fmt === "image" ? "image/jpeg,image/png" : fmt === "video" ? "video/mp4" : "application/pdf";
+              return (
+                <div className="field">
+                  <label>Header {fmt}</label>
+                  <div style={{ display: "flex", gap: 14, margin: "4px 0 8px" }}>
+                    {(["upload", "url"] as const).map((m) => (
+                      <label key={m} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, cursor: "pointer" }}>
+                        <input type="radio" name="headermode" checked={bulkHeaderMode === m} onChange={() => setBulkHeaderMode(m)} />
+                        {m === "upload" ? "Upload file" : "Paste URL"}
+                      </label>
+                    ))}
+                  </div>
+                  {bulkHeaderMode === "upload" ? (
+                    <>
+                      <input type="file" accept={accept} disabled={bulkHeaderUploading}
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadBulkHeader(f); }}
+                        style={{ fontSize: 13 }} />
+                      <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                        {bulkHeaderUploading ? "Uploading…" : bulkHeaderId ? `✓ Ready: ${bulkHeaderName}` : `Choose the ${fmt} to show on top. Max 16MB.`}
+                      </div>
+                    </>
+                  ) : (
+                    <input value={bulkHeaderUrl} onChange={(e) => setBulkHeaderUrl(e.target.value)}
+                      placeholder="https://example.com/banner.jpg"
+                      style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, fontSize: 14 }} />
+                  )}
                 </div>
-                <input
-                  value={bulkHeaderUrl}
-                  onChange={(e) => setBulkHeaderUrl(e.target.value)}
-                  placeholder="https://example.com/banner.jpg"
-                  style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, fontSize: 14 }}
-                />
-              </div>
-            )}
+              );
+            })()}
             {bulkVars.length > 0 && (
               <div className="field">
                 <label>Template variables</label>
@@ -667,7 +730,15 @@ export default function CampaignsPage() {
         <div className="panel">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h2>Bulk Send Detail</h2>
-            <button className="btn-mini" onClick={() => setBulkDetail(null)}>Close</button>
+            <div style={{ display: "flex", gap: 8 }}>
+              {bulkDetail.failed_count > 0 && bulkDetail.status !== "processing" && (
+                <button className="btn" style={{ width: "auto", padding: "6px 14px" }} disabled={retryingId === bulkDetail.uuid}
+                  onClick={() => retryBulk(bulkDetail.uuid)}>
+                  {retryingId === bulkDetail.uuid ? "Retrying…" : `Retry ${bulkDetail.failed_count} failed`}
+                </button>
+              )}
+              <button className="btn-mini" onClick={() => setBulkDetail(null)}>Close</button>
+            </div>
           </div>
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap", margin: "12px 0" }}>
             <div><span className="muted">Template:</span> {bulkDetail.template_name}</div>
@@ -736,7 +807,13 @@ export default function CampaignsPage() {
                       <td style={{ padding: "8px 4px", textAlign: "right", color: "#0a7d47" }}>{s.sent_count}</td>
                       <td style={{ padding: "8px 4px", textAlign: "right", color: "#c53030" }}>{s.failed_count}</td>
                       <td style={{ padding: "8px 4px" }}>{s.created_at ? new Date(s.created_at).toLocaleDateString("en-IN") : "—"}</td>
-                      <td style={{ padding: "8px 4px", textAlign: "right" }}>
+                      <td style={{ padding: "8px 4px", textAlign: "right", whiteSpace: "nowrap" }}>
+                        {s.failed_count > 0 && s.status !== "processing" && (
+                          <button className="btn-mini" style={{ marginRight: 6, color: "#c53030", borderColor: "#f3c6c6" }}
+                            disabled={retryingId === s.uuid} onClick={() => retryBulk(s.uuid)}>
+                            {retryingId === s.uuid ? "…" : "Retry"}
+                          </button>
+                        )}
                         <button className="btn-mini" onClick={() => viewBulkDetail(s.uuid)}>View</button>
                       </td>
                     </tr>
