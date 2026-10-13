@@ -7,6 +7,12 @@ import { useUser } from "@/lib/user-context";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingBlock } from "@/components/Preloader";
 
+type FbAuthResponse = { authResponse?: { accessToken?: string } | null; status?: string };
+type FbSdk = {
+  init: (o: { appId: string; cookie?: boolean; xfbml?: boolean; version: string }) => void;
+  login: (cb: (r: FbAuthResponse) => void, o: { scope: string; return_scopes?: boolean }) => void;
+};
+
 export default function SocialPage() {
   const me = useUser();
   const perms = me.permissions ?? [];
@@ -23,6 +29,13 @@ export default function SocialPage() {
   const [showConnect, setShowConnect] = useState(false);
   const [connForm, setConnForm] = useState({ page_id: "", page_access_token: "" });
   const [connecting, setConnecting] = useState(false);
+  const [showManual, setShowManual] = useState(false);
+
+  // Facebook login page-picker
+  const [fbAppId, setFbAppId] = useState<string | null>(null);
+  const [apiVersion, setApiVersion] = useState("v23.0");
+  const [fbBusy, setFbBusy] = useState(false);
+  const [pages, setPages] = useState<{ id: string; name: string; access_token: string; ig_user_id: string | null; ig_username: string | null }[]>([]);
 
   // compose
   const [caption, setCaption] = useState("");
@@ -73,6 +86,8 @@ export default function SocialPage() {
         api.social.posts(token).catch(() => ({ posts: [] as SocialPost[] })),
       ]);
       setConnection(c.connection);
+      setFbAppId(c.facebook_app_id);
+      setApiVersion(c.api_version || "v23.0");
       setPosts(p.posts);
     } catch (err) {
       setError(errMsg(err));
@@ -80,6 +95,65 @@ export default function SocialPage() {
       setLoading(false);
     }
   }, []);
+
+  async function ensureFb(appId: string, version: string): Promise<FbSdk> {
+    const w = window as unknown as { FB?: FbSdk };
+    if (w.FB) return w.FB;
+    await new Promise<void>((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "https://connect.facebook.net/en_US/sdk.js";
+      s.async = true; s.defer = true;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error("Could not load the Facebook SDK. Check your connection."));
+      document.body.appendChild(s);
+    });
+    w.FB!.init({ appId, cookie: true, xfbml: false, version });
+    return w.FB!;
+  }
+
+  async function loginWithFacebook() {
+    const token = getToken();
+    if (!token) return;
+    if (!fbAppId) { setError("Facebook login isn't configured. Use the manual option below."); setShowManual(true); return; }
+    setFbBusy(true); setError(null);
+    try {
+      const FB = await ensureFb(fbAppId, apiVersion);
+      const auth = await new Promise<FbAuthResponse>((resolve) =>
+        FB.login((r) => resolve(r), {
+          scope: "pages_show_list,pages_manage_posts,business_management,instagram_basic,instagram_content_publish",
+          return_scopes: true,
+        })
+      );
+      const userToken = auth?.authResponse?.accessToken;
+      if (!userToken) { setError("Facebook login was cancelled."); return; }
+      const res = await api.social.pages(token, userToken);
+      if (!res.pages.length) {
+        setError("No Facebook Pages found. Make sure you manage at least one Page and granted permission.");
+        return;
+      }
+      setPages(res.pages);
+    } catch (err) {
+      setError(errMsg(err));
+    } finally {
+      setFbBusy(false);
+    }
+  }
+
+  async function connectPage(p: { id: string; name: string; access_token: string }) {
+    const token = getToken();
+    if (!token) return;
+    setConnecting(true); setError(null);
+    try {
+      const res = await api.social.connect(token, { page_id: p.id, page_access_token: p.access_token });
+      setConnection(res.connection);
+      setShowConnect(false); setPages([]);
+      flash(`Connected to ${res.connection.page_name ?? p.name}.`);
+    } catch (err) {
+      setError(errMsg(err));
+    } finally {
+      setConnecting(false);
+    }
+  }
 
   useEffect(() => { load(); }, [load]);
 
@@ -471,27 +545,65 @@ export default function SocialPage() {
 
       {/* Connect modal */}
       {showConnect && (
-        <div className="msg-info-overlay" onClick={() => setShowConnect(false)}>
+        <div className="msg-info-overlay" onClick={() => { setShowConnect(false); setPages([]); }}>
           <div className="msg-info-panel" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
-            <h2 style={{ marginTop: 0 }}>Connect Facebook Page</h2>
-            <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
-              Paste your Facebook <b>Page ID</b> and a <b>Page access token</b> with <code>pages_manage_posts</code> and{" "}
-              <code>instagram_content_publish</code> permissions. We&apos;ll auto-detect the linked Instagram account.
-            </p>
-            <form onSubmit={connect}>
-              <div className="field">
-                <label>Facebook Page ID</label>
-                <input value={connForm.page_id} onChange={(e) => setConnForm((f) => ({ ...f, page_id: e.target.value }))} required placeholder="1234567890" />
-              </div>
-              <div className="field">
-                <label>Page access token</label>
-                <input value={connForm.page_access_token} onChange={(e) => setConnForm((f) => ({ ...f, page_access_token: e.target.value }))} required placeholder="EAAG…" />
-              </div>
-              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                <button className="btn" disabled={connecting}>{connecting ? "Verifying…" : "Connect"}</button>
-                <button type="button" className="btn-mini" onClick={() => setShowConnect(false)}>Cancel</button>
-              </div>
-            </form>
+            <h2 style={{ marginTop: 0 }}>Connect Facebook &amp; Instagram</h2>
+
+            {pages.length > 0 ? (
+              <>
+                <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>Choose the Page you want to connect:</p>
+                <div style={{ display: "grid", gap: 8, maxHeight: 340, overflowY: "auto" }}>
+                  {pages.map((p) => (
+                    <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, border: "1px solid var(--border)", borderRadius: 10, padding: "10px 12px" }}>
+                      <div>
+                        <div style={{ fontWeight: 600 }}>{p.name}</div>
+                        <div className="muted" style={{ fontSize: 12 }}>
+                          {p.ig_username ? `Instagram: @${p.ig_username}` : "No Instagram linked"}
+                        </div>
+                      </div>
+                      <button className="btn" style={{ width: "auto", padding: "7px 16px" }} disabled={connecting} onClick={() => connectPage(p)}>
+                        {connecting ? "…" : "Connect"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button type="button" className="btn-mini" style={{ marginTop: 12 }} onClick={() => setPages([])}>Back</button>
+              </>
+            ) : (
+              <>
+                <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
+                  Log in with Facebook and pick the Page you want to publish from. We&apos;ll auto-detect its linked Instagram account.
+                </p>
+                <button
+                  className="btn"
+                  style={{ background: "#1877f2", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                  disabled={fbBusy}
+                  onClick={loginWithFacebook}
+                >
+                  <span style={{ fontWeight: 800 }}>f</span> {fbBusy ? "Opening Facebook…" : "Continue with Facebook"}
+                </button>
+
+                <button type="button" className="btn-ghost" style={{ marginTop: 12, fontSize: 13 }} onClick={() => setShowManual((v) => !v)}>
+                  {showManual ? "Hide manual option" : "Advanced: enter Page ID & token manually"}
+                </button>
+
+                {showManual && (
+                  <form onSubmit={connect} style={{ marginTop: 10, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
+                    <div className="field">
+                      <label>Facebook Page ID</label>
+                      <input value={connForm.page_id} onChange={(e) => setConnForm((f) => ({ ...f, page_id: e.target.value }))} required placeholder="1234567890" />
+                    </div>
+                    <div className="field">
+                      <label>Page access token</label>
+                      <input value={connForm.page_access_token} onChange={(e) => setConnForm((f) => ({ ...f, page_access_token: e.target.value }))} required placeholder="EAAG…" />
+                    </div>
+                    <button className="btn" disabled={connecting}>{connecting ? "Verifying…" : "Connect"}</button>
+                  </form>
+                )}
+              </>
+            )}
+
+            <button type="button" className="btn-mini" style={{ marginTop: 12 }} onClick={() => { setShowConnect(false); setPages([]); }}>Cancel</button>
           </div>
         </div>
       )}

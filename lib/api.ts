@@ -455,7 +455,11 @@ export const api = {
 
   social: {
     connection: (token: string) =>
-      request<{ connection: SocialConnection | null }>("/social/connection", { token }),
+      request<{ connection: SocialConnection | null; facebook_app_id: string | null; api_version: string }>("/social/connection", { token }),
+    pages: (token: string, userToken: string) =>
+      request<{ pages: { id: string; name: string; access_token: string; ig_user_id: string | null; ig_username: string | null }[] }>(
+        "/social/pages", { method: "POST", body: { user_token: userToken }, token }
+      ),
     connect: (token: string, body: { page_id: string; page_access_token: string }) =>
       request<{ connection: SocialConnection }>("/social/connect", { method: "POST", body, token }),
     recheckInstagram: (token: string) =>
