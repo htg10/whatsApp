@@ -643,9 +643,9 @@ export default function InboxPage() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 80px)" }}>
+    <div className={`inbox-page ${activeConv ? "chat-open" : ""}`}>
       {/* Live chat toolbar */}
-      <div style={{
+      <div className="inbox-toolbar" style={{
         display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap",
         padding: "10px 16px", border: "1px solid var(--border)", borderBottom: "none",
         borderRadius: "var(--radius) var(--radius) 0 0", background: "var(--card)",
@@ -675,7 +675,7 @@ export default function InboxPage() {
         </div>
       </div>
 
-      <div className="inbox-layout" style={{ height: "auto", flex: 1, minHeight: 0, borderRadius: "0 0 var(--radius) var(--radius)" }}>
+      <div className={`inbox-layout ${activeConv ? "chat-open" : ""}`} style={{ height: "auto", flex: 1, minHeight: 0, borderRadius: "0 0 var(--radius) var(--radius)" }}>
       {/* Toast */}
       {toast && (
         <div style={{
@@ -847,6 +847,7 @@ export default function InboxPage() {
         ) : (
           <>
             <div className="chat-header">
+              <button className="chat-back" onClick={() => setActiveId(null)} title="Back to chats" aria-label="Back">←</button>
               <div className="convo-avatar" style={{ width: 38, height: 38, fontSize: 14 }}>
                 {(activeConv.contact?.name?.[0] ?? "?").toUpperCase()}
               </div>

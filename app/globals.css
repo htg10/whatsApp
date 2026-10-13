@@ -418,6 +418,7 @@ a:hover { text-decoration: underline; }
 .preloader-text { color: var(--muted); font-size: 14px; letter-spacing: .2px; }
 
 /* Inbox */
+.inbox-page { display: flex; flex-direction: column; height: calc(100vh - 80px); }
 .inbox-layout { display: flex; height: calc(100vh - 80px); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--card); }
 .convo-list { width: 360px; border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
 .convo-list-header { padding: 14px 16px; border-bottom: 1px solid var(--border); }
@@ -436,6 +437,7 @@ a:hover { text-decoration: underline; }
 
 .chat-area { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .chat-header { padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+.chat-back { display: none; background: none; border: none; font-size: 22px; line-height: 1; color: var(--text); cursor: pointer; padding: 2px 6px 2px 0; flex-shrink: 0; }
 .chat-header .name { font-weight: 600; font-size: 15px; }
 .chat-header .phone { color: var(--muted); font-size: 13px; }
 .chat-header .window-tag { font-size: 11px; padding: 2px 8px; border-radius: 999px; margin-left: auto; }
@@ -589,14 +591,27 @@ a:hover { text-decoration: underline; }
   .quick-actions { gap: 8px; }
   .quick-action { padding: 8px 12px; font-size: 13px; }
 
-  /* Inbox: stack layout */
-  .inbox-layout { flex-direction: column; height: auto; min-height: calc(100vh - 80px); }
-  .convo-list { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 45vh; }
-  .chat-area { min-height: 55vh; }
+  /* Inbox: single pane on mobile — list OR chat full-screen (WhatsApp-style) */
+  .inbox-page { height: calc(100dvh - 56px); }
+  /* Maximise chat space: hide the filters toolbar while a chat is open */
+  .inbox-page.chat-open .inbox-toolbar { display: none; }
+  .inbox-toolbar { padding: 8px 12px !important; gap: 8px 10px !important; font-size: 12px; }
+  .inbox-toolbar .btn-mini { padding: 5px 9px; }
+  .inbox-layout { flex-direction: column; height: auto; min-height: 0; flex: 1; border: none; border-radius: 0; }
+  .convo-list { width: 100%; border-right: none; max-height: none; flex: 1; min-height: 0; }
+  .chat-area { display: none; min-height: 0; flex: 1; }
+  /* When a chat is open, hide the list and show the chat full-screen */
+  .inbox-layout.chat-open .convo-list { display: none; }
+  .inbox-layout.chat-open .chat-area { display: flex; }
+  .chat-back { display: block; }
+  .chat-empty { display: none; }
   .bubble { max-width: 85%; }
   .compose-bar { padding: 8px 10px; gap: 6px; }
   .compose-bar input { padding: 10px 12px; font-size: 13px; }
-  .chat-header { padding: 10px 14px; flex-wrap: wrap; gap: 8px; }
+  .chat-header { padding: 10px 12px; gap: 8px; }
+  /* Keep the chat-header actions from wrapping awkwardly */
+  .chat-header .name { font-size: 14px; }
+  .chat-header .phone { font-size: 12px; }
 
   /* Grid layouts */
   .grid { grid-template-columns: 1fr; }
@@ -620,7 +635,6 @@ a:hover { text-decoration: underline; }
 /* Small phones */
 @media (max-width: 480px) {
   .stat-cards { grid-template-columns: 1fr; }
-  .convo-list { max-height: 40vh; }
   .convo-item { padding: 10px 12px; gap: 10px; }
   .convo-avatar { width: 38px; height: 38px; font-size: 14px; }
   .hero h1 { font-size: 16px; }
