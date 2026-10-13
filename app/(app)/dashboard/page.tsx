@@ -10,6 +10,9 @@ const ROLE_LABELS: Record<string, string> = {
   "super-admin": "Super Admin", "tenant-owner": "Admin", "agent": "Agent", "manager": "Admin", "user": "Agent",
 };
 
+const fmtDate = (iso: string | null | undefined) =>
+  iso ? new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+
 function StatCard({ icon, bg, label, value, color }: { icon: string; bg: string; label: string; value: React.ReactNode; color?: string }) {
   return (
     <div className="stat-card">
@@ -134,8 +137,10 @@ export default function DashboardPage() {
         <div className="row"><span className="k">Email</span><span>{user.email}</span></div>
         <div className="row"><span className="k">Role</span><span>{roleName ?? "—"}</span></div>
         <div className="row"><span className="k">Workspace</span><span>{user.tenant?.name ?? "— (platform)"}</span></div>
-        <div className="row"><span className="k">Plan status</span><span>{user.tenant?.status ?? "—"}</span></div>
-        <div className="row"><span className="k">Trial ends</span><span>{user.tenant?.trial_ends_at ? new Date(user.tenant.trial_ends_at).toLocaleDateString("en-IN") : "—"}</span></div>
+        <div className="row"><span className="k">Plan</span><span>{user.subscription?.plan_name ?? "—"}</span></div>
+        <div className="row"><span className="k">Plan status</span><span>{user.subscription?.status ?? user.tenant?.status ?? "—"}</span></div>
+        <div className="row"><span className="k">Plan starts</span><span>{fmtDate(user.subscription?.current_period_start)}</span></div>
+        <div className="row"><span className="k">Plan expires</span><span>{fmtDate(user.subscription?.current_period_end ?? user.tenant?.trial_ends_at)}</span></div>
         <div className="row"><span className="k">Permissions</span><span>{(user.permissions ?? []).length} granted</span></div>
       </div>
     </>

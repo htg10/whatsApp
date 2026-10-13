@@ -17,6 +17,8 @@ export function renderInvoiceHtml(inv: InvoiceItem): string {
     </tr>`).join("");
 
   const paid = inv.status === "paid";
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const logo = `${origin}/logo.png`;
 
   return `<!doctype html><html><head><meta charset="utf-8"><title>Invoice ${esc(inv.number)}</title>
   <style>
@@ -39,6 +41,7 @@ export function renderInvoiceHtml(inv: InvoiceItem): string {
   </style></head><body><div class="wrap">
     <div class="head">
       <div>
+        <img src="${logo}" alt="Heltog" style="height:42px;margin-bottom:8px;display:block" onerror="this.style.display='none'" />
         <div class="brand">${esc(seller.company_name || "Heltog SocialFlow")}</div>
         <div class="muted">${esc(seller.address || "")}</div>
         <div class="muted">${seller.gstin ? "GSTIN: " + esc(seller.gstin) : ""}${seller.tax_details ? " · " + esc(seller.tax_details) : ""}</div>

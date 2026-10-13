@@ -636,7 +636,7 @@ export type User = {
   plan_features: string[] | null;
   /** Numeric plan limits (key => int, or null = unlimited). 0 = blocked. null map = no gating. */
   plan_limits: Record<string, number | null> | null;
-  subscription: { status: string; plan_name: string; current_period_end: string | null } | null;
+  subscription: { status: string; plan_name: string; current_period_start: string | null; current_period_end: string | null } | null;
   tenant: Tenant | null;
   last_login_at: string | null;
 };
