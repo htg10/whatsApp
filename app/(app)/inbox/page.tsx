@@ -71,7 +71,7 @@ function MediaBubble({ msg }: { msg: InboxMessage }) {
         {att.url
           ? <a href={att.url} target="_blank" rel="noopener noreferrer" title="Open full size"><img src={att.url} alt={att.caption || "Image"} loading="lazy" /></a>
           : <div style={{ padding: "10px 12px", fontSize: 12, color: "var(--muted)" }}>🖼️ Image unavailable</div>}
-        {att.caption && <div style={{ marginTop: 4, fontSize: 13 }}>{att.caption}</div>}
+        {att.caption && <div className="media-caption">{att.caption}</div>}
       </div>
     );
   }
@@ -80,9 +80,9 @@ function MediaBubble({ msg }: { msg: InboxMessage }) {
     return (
       <div className="bubble-media">
         {att.url
-          ? <video src={att.url} controls playsInline preload="metadata" style={{ maxWidth: 280, maxHeight: 340 }} />
+          ? <video src={att.url} controls playsInline preload="metadata" />
           : <div style={{ padding: "10px 12px", fontSize: 12, color: "var(--muted)" }}>🎬 Video unavailable</div>}
-        {att.caption && <div style={{ marginTop: 4, fontSize: 13 }}>{att.caption}</div>}
+        {att.caption && <div className="media-caption">{att.caption}</div>}
       </div>
     );
   }
@@ -103,7 +103,7 @@ function MediaBubble({ msg }: { msg: InboxMessage }) {
         <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
           {att.mime_type} {att.file_size ? `· ${formatFileSize(att.file_size)}` : ""}
         </div>
-        {att.caption && <div style={{ marginTop: 4, fontSize: 13 }}>{att.caption}</div>}
+        {att.caption && <div className="media-caption">{att.caption}</div>}
       </div>
       {att.url && (
         <a href={att.url} target="_blank" rel="noopener noreferrer" style={{ marginLeft: "auto", padding: "6px 10px", background: "var(--primary)", color: "#fff", borderRadius: 8, fontSize: 12, textDecoration: "none", fontWeight: 600, whiteSpace: "nowrap" }}>
