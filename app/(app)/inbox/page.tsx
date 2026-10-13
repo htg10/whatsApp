@@ -913,7 +913,7 @@ export default function InboxPage() {
                       >
                         ▾
                       </button>
-                      {isMediaMessage(msg.type) && msg.attachments && msg.attachments.length > 0 ? (
+                      {msg.attachments && msg.attachments.length > 0 && isMediaMessage(msg.attachments[0].type) ? (
                         <MediaBubble msg={msg} />
                       ) : (
                         <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{msg.body || `[${msg.type}]`}</div>
