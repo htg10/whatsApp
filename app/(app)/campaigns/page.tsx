@@ -283,6 +283,24 @@ export default function CampaignsPage() {
     return text.split(/[\n,;]+/).map((n) => n.trim().replace(/[^0-9+]/g, "")).filter((n) => n.length >= 10);
   }
 
+  async function importNumbersFile(file: File) {
+    const text = await file.text();
+    // Pull every phone-number-like token from any column of a CSV/TXT (skips headers automatically).
+    const found = (text.match(/\+?\d[\d\s\-()]{8,}\d/g) || [])
+      .map((t) => t.replace(/[^0-9+]/g, ""))
+      .filter((n) => n.length >= 10);
+    if (found.length === 0) { setError(`No phone numbers found in ${file.name}`); return; }
+    let added = 0;
+    setBulkNumbers((prev) => {
+      const existing = parseNumbers(prev);
+      const merged = Array.from(new Set([...existing, ...found])); // de-dupe
+      added = merged.length - existing.length;
+      return merged.join("\n");
+    });
+    setError(null);
+    setNotice(`Imported ${added} new number${added === 1 ? "" : "s"} from ${file.name}.`);
+  }
+
   async function sendBulk(e: React.FormEvent) {
     e.preventDefault();
     const token = getToken();
@@ -705,7 +723,21 @@ export default function CampaignsPage() {
               </div>
             )}
             <div className="field">
-              <label>Phone numbers (one per line, or comma-separated)</label>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <label style={{ margin: 0 }}>Phone numbers (one per line, or comma-separated)</label>
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer", color: "var(--primary, #1f6feb)", fontWeight: 600 }}>
+                  ⬆ Import CSV
+                  <input
+                    type="file"
+                    accept=".csv,.txt,text/csv,text/plain"
+                    style={{ display: "none" }}
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) importNumbersFile(f); e.target.value = ""; }}
+                  />
+                </label>
+              </div>
+              <div className="muted" style={{ fontSize: 12, margin: "2px 0 6px" }}>
+                Upload a .csv file (export your Excel sheet as CSV) — numbers from any column load below automatically.
+              </div>
               <textarea
                 value={bulkNumbers}
                 onChange={(e) => setBulkNumbers(e.target.value)}
