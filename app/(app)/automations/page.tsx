@@ -266,6 +266,10 @@ export default function AutomationsPage() {
     setEdges((prev) => prev.filter((e) => !(e.source_node_key === src && e.target_node_key === tgt)));
   }
 
+  function setEdgeBranch(src: string, tgt: string, branch: string) {
+    setEdges((prev) => prev.map((e) => (e.source_node_key === src && e.target_node_key === tgt ? { ...e, branch } : e)));
+  }
+
   function updateNodeConfig(key: string, config: Record<string, unknown>) {
     setNodes((prev) => prev.map((n) => n.node_key === key ? { ...n, config } : n));
   }
@@ -640,18 +644,53 @@ export default function AutomationsPage() {
                       />
                     </div>
                   )}
+
+                  {selNode.type === "assign_agent" && (
+                    <div className="field">
+                      <label style={{ fontSize: 12 }}>Agent email</label>
+                      <input
+                        value={(selNode.config?.agent_email as string) ?? ""}
+                        onChange={(e) => updateNodeConfig(selNode.node_key, { ...selNode.config, agent_email: e.target.value })}
+                        placeholder="agent@company.com"
+                        style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 8, fontSize: 13 }}
+                      />
+                    </div>
+                  )}
+
+                  {selNode.type === "send_message" && (
+                    <p className="muted" style={{ fontSize: 11, marginTop: -4 }}>
+                      Tip: use {"{{name}}"} and {"{{phone}}"} to personalise. Free-text only sends inside the 24-hour window — use a template otherwise.
+                    </p>
+                  )}
                 </>
               )}
 
               {/* Connections from this node */}
               <div style={{ marginTop: 16 }}>
                 <h4 style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>Connections from this node</h4>
+                {selNode.family === "condition" && edges.some((e) => e.source_node_key === selNode.node_key) && (
+                  <p className="muted" style={{ fontSize: 11, marginBottom: 6 }}>
+                    Pick <b>Yes</b> / <b>No</b> for each path. If you leave them as “default”, the condition acts as a gate — only a TRUE result continues.
+                  </p>
+                )}
                 {edges.filter((e) => e.source_node_key === selNode.node_key).map((e) => {
                   const tgt = nodes.find((n) => n.node_key === e.target_node_key);
                   return (
                     <div key={e.target_node_key} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginBottom: 4 }}>
                       <span>→ {tgt?.type ?? e.target_node_key}</span>
-                      {e.branch && <span style={{ color: "#007bfc", fontSize: 11 }}>[{e.branch}]</span>}
+                      {canEdit && selNode.family === "condition" ? (
+                        <select
+                          value={e.branch ?? "default"}
+                          onChange={(ev) => setEdgeBranch(e.source_node_key, e.target_node_key, ev.target.value)}
+                          style={{ padding: "2px 6px", border: "1px solid var(--border)", borderRadius: 6, fontSize: 11 }}
+                        >
+                          <option value="default">default</option>
+                          <option value="yes">Yes (true)</option>
+                          <option value="no">No (false)</option>
+                        </select>
+                      ) : (
+                        e.branch && e.branch !== "default" && <span style={{ color: "#007bfc", fontSize: 11 }}>[{e.branch}]</span>
+                      )}
                       {canEdit && <button className="btn-mini danger" style={{ padding: "1px 6px", fontSize: 10 }} onClick={() => removeEdge(e.source_node_key, e.target_node_key)}>✕</button>}
                     </div>
                   );
