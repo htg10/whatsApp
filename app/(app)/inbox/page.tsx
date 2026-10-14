@@ -24,8 +24,37 @@ function StatusIcon({ status }: { status: string }) {
   if (status === "read") return <span className="status-checks status-read">✓✓</span>;
   if (status === "delivered") return <span className="status-checks">✓✓</span>;
   if (status === "sent") return <span className="status-checks">✓</span>;
-  if (status === "failed") return <span className="status-checks" style={{ color: "var(--danger)" }}>!</span>;
+  if (status === "failed") return <span className="status-checks" style={{ color: "var(--danger)" }} title="Delivery failed">⚠</span>;
   return null;
+}
+
+/** Turn Meta's delivery error into a short, plain-English reason the user can act on. */
+function failureReason(code: string | null, message: string | null): string {
+  switch (String(code ?? "")) {
+    case "131026":
+    case "133010":
+      return "This number is not on WhatsApp (or can't receive messages).";
+    case "131049":
+    case "130472":
+      return "Meta didn't deliver this marketing message (per-user frequency cap). Try a utility template or message people who opted in.";
+    case "131047":
+      return "More than 24h since the customer last replied — only a template can reach them now.";
+    case "131048":
+      return "Blocked: this number has hit its spam/quality limit. Slow down and send only to people who opted in.";
+    case "131031":
+    case "368":
+      return "Your WhatsApp number is restricted by Meta (quality/policy). Check WhatsApp Manager.";
+    case "132000":
+    case "132001":
+    case "132005":
+    case "132007":
+    case "132012":
+      return "Template problem (not approved, paused, or wrong variables). Check the template in Templates.";
+    case "131021":
+      return "Can't send — this is the business's own number.";
+    default:
+      return message || "Meta couldn't deliver this message.";
+  }
 }
 
 function formatFileSize(bytes: number | null | undefined): string {
@@ -923,6 +952,11 @@ export default function InboxPage() {
                         <span>{formatTime(msg.created_at)}</span>
                         {msg.direction === "outbound" && <StatusIcon status={msg.status} />}
                       </div>
+                      {msg.direction === "outbound" && msg.status === "failed" && (
+                        <div style={{ marginTop: 4, fontSize: 11.5, color: "#c53030", background: "#fdecec", borderRadius: 6, padding: "4px 8px", lineHeight: 1.4 }}>
+                          ⚠ Not delivered — {failureReason(msg.error_code, msg.error_message)}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))
