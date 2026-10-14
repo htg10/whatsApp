@@ -6,21 +6,53 @@ import { getToken } from "@/lib/auth";
 
 type Msg = { role: "user" | "assistant"; text: string };
 
-const SUGGESTIONS = [
-  "Aaj kitne messages aaye?",
-  "How many open conversations do I have?",
-  "Kitne hot leads hain?",
-  "Give me a summary of my dashboard",
+const LANGUAGES = [
+  { value: "en", label: "English" },
+  { value: "hinglish", label: "Hinglish" },
+  { value: "hi", label: "हिन्दी" },
+  { value: "mr", label: "मराठी" },
+  { value: "gu", label: "ગુજરાતી" },
+  { value: "ta", label: "தமிழ்" },
+  { value: "te", label: "తెలుగు" },
+  { value: "bn", label: "বাংলা" },
+  { value: "pa", label: "ਪੰਜਾਬੀ" },
 ];
+
+const GREETING: Record<string, string> = {
+  en: "Hi! Ask me anything about your data — today's messages, open chats, hot leads or an overall summary. I only ever look at your own data.",
+  hinglish: "Hi! Apne data ke baare mein kuch bhi poochho — aaj ke messages, open chats, hot leads ya overall summary. Main sirf aapka hi data dekhta hoon.",
+  hi: "नमस्ते! अपने डेटा के बारे में कुछ भी पूछें — आज के मैसेज, ओपन चैट, हॉट लीड्स या पूरा सारांश। मैं सिर्फ़ आपका ही डेटा देखता हूँ।",
+};
+
+const PLACEHOLDER: Record<string, string> = {
+  en: "Type your question…",
+  hinglish: "Apna sawaal likhein…",
+  hi: "अपना सवाल लिखें…",
+};
+
+const SUGGESTIONS: Record<string, string[]> = {
+  en: ["How many messages today?", "How many open conversations do I have?", "How many hot leads?", "Give me a summary of my dashboard"],
+  hinglish: ["Aaj kitne messages aaye?", "Kitni open conversations hain?", "Kitne hot leads hain?", "Mere dashboard ka summary do"],
+  hi: ["आज कितने मैसेज आए?", "कितनी ओपन चैट हैं?", "कितने हॉट लीड्स हैं?", "मेरे डैशबोर्ड का सारांश दें"],
+};
 
 export function AssistantWidget() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [msgs, setMsgs] = useState<Msg[]>([
-    { role: "assistant", text: "Hi! Apne data ke baare mein kuch bhi poochho — aaj ke messages, open chats, hot leads ya overall summary. Main sirf aapka hi data dekhta hoon." },
-  ]);
+  const [lang, setLang] = useState("en");
+  const [msgs, setMsgs] = useState<Msg[]>([{ role: "assistant", text: GREETING.en }]);
   const bodyRef = useRef<HTMLDivElement>(null);
+
+  const greeting = GREETING[lang] ?? GREETING.en;
+  const placeholder = PLACEHOLDER[lang] ?? PLACEHOLDER.en;
+  const suggestions = SUGGESTIONS[lang] ?? SUGGESTIONS.en;
+
+  // When the user switches language before asking anything, re-greet in that language.
+  function changeLang(next: string) {
+    setLang(next);
+    setMsgs((m) => (m.length <= 1 ? [{ role: "assistant", text: GREETING[next] ?? GREETING.en }] : m));
+  }
 
   useEffect(() => {
     if (open) bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight, behavior: "smooth" });
@@ -35,7 +67,7 @@ export function AssistantWidget() {
     setMsgs((m) => [...m, { role: "user", text: q }]);
     setBusy(true);
     try {
-      const res = await api.assistant.ask(token, q);
+      const res = await api.assistant.ask(token, q, lang);
       setMsgs((m) => [...m, { role: "assistant", text: res.answer }]);
     } catch (err) {
       setMsgs((m) => [...m, { role: "assistant", text: (err as ApiError).message || "Sorry, kuch galat ho gaya. Dubara try karein." }]);
@@ -67,12 +99,22 @@ export function AssistantWidget() {
               display: "flex", flexDirection: "column", zIndex: 301, overflow: "hidden",
             }}
           >
-            <div style={{ background: "linear-gradient(135deg,#0e7c7b,#143d3c)", color: "#fff", padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ background: "linear-gradient(135deg,#0e7c7b,#143d3c)", color: "#fff", padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 15 }}>Data Assistant</div>
-                <div style={{ fontSize: 11, color: "rgba(255,255,255,.75)" }}>🔒 Sirf aapke apne data par</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,.75)" }}>🔒 Only your own data</div>
               </div>
-              <button onClick={() => setOpen(false)} style={{ background: "rgba(255,255,255,.18)", color: "#fff", border: "none", borderRadius: 8, width: 28, height: 28, cursor: "pointer", fontSize: 16 }}>×</button>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <select
+                  value={lang}
+                  onChange={(e) => changeLang(e.target.value)}
+                  title="Answer language"
+                  style={{ background: "rgba(255,255,255,.18)", color: "#fff", border: "1px solid rgba(255,255,255,.3)", borderRadius: 8, padding: "4px 6px", fontSize: 12, cursor: "pointer" }}
+                >
+                  {LANGUAGES.map((l) => <option key={l.value} value={l.value} style={{ color: "#1f2a2a" }}>{l.label}</option>)}
+                </select>
+                <button onClick={() => setOpen(false)} style={{ background: "rgba(255,255,255,.18)", color: "#fff", border: "none", borderRadius: 8, width: 28, height: 28, cursor: "pointer", fontSize: 16 }}>×</button>
+              </div>
             </div>
 
             <div ref={bodyRef} style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column", gap: 10, background: "var(--bg, #f6f7f8)" }}>
@@ -96,7 +138,7 @@ export function AssistantWidget() {
 
               {msgs.length <= 1 && !busy && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
-                  {SUGGESTIONS.map((s) => (
+                  {suggestions.map((s) => (
                     <button key={s} onClick={() => ask(s)} style={{
                       background: "#eafaf7", color: "#0a7d47", border: "1px solid #cfeee4", borderRadius: 999,
                       padding: "5px 11px", fontSize: 12, cursor: "pointer",
@@ -113,7 +155,7 @@ export function AssistantWidget() {
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Apna sawaal likhein…"
+                placeholder={placeholder}
                 style={{ flex: 1, padding: "10px 12px", border: "1px solid var(--border,#d7e3e0)", borderRadius: 10, fontSize: 14 }}
               />
               <button type="submit" disabled={busy || !input.trim()} className="btn" style={{ width: "auto", padding: "0 18px" }}>Send</button>

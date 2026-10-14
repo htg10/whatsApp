@@ -334,7 +334,12 @@ export default function SocialPage() {
             Link your Facebook Page (and its connected Instagram Business account) to publish posts from here.
           </p>
           {canConnect ? (
-            <button className="btn" onClick={() => setShowConnect(true)}>Connect a Facebook Page</button>
+            <>
+              <button className="btn" onClick={() => setShowConnect(true)}>Connect Facebook &amp; Instagram</button>
+              <p className="muted" style={{ fontSize: 12, marginTop: 12, maxWidth: 440, marginLeft: "auto", marginRight: "auto" }}>
+                ℹ️ Instagram is connected automatically through its linked Facebook Page — that&apos;s how Meta&apos;s publishing API works. Make sure your Instagram is a <b>Business/Creator</b> account linked to your Page.
+              </p>
+            </>
           ) : (
             <p className="muted">Ask your workspace admin to connect a Facebook Page.</p>
           )}

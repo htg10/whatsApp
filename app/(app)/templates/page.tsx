@@ -48,6 +48,7 @@ type BuilderState = {
   header_text: string;
   header_handle: string;
   header_sample_name: string;
+  header_preview: string; // local object URL for live preview of the chosen media
   body: string;
   footer: string;
   buttons: TemplateButton[];
@@ -62,6 +63,7 @@ const EMPTY_BUILDER: BuilderState = {
   header_text: "",
   header_handle: "",
   header_sample_name: "",
+  header_preview: "",
   body: "Hi {{1}}, thanks for choosing us! Your order {{2}} is confirmed. 🎉",
   footer: "",
   buttons: [],
@@ -99,13 +101,17 @@ export default function TemplatesPage() {
     if (!token) return;
     setUploading(true);
     setError(null);
+    // Show a real preview straight away from the local file (Meta upload runs in the background).
+    const previewUrl = URL.createObjectURL(file);
+    setB((s) => { if (s.header_preview) URL.revokeObjectURL(s.header_preview); return { ...s, header_preview: previewUrl }; });
     try {
       const { header_handle } = await api.templates.uploadSample(token, file);
       setB((s) => ({ ...s, header_handle, header_sample_name: file.name }));
     } catch (err) {
       const e = err as ApiError;
       setError(e.errors ? Object.values(e.errors).flat().join(". ") : e.message);
-      setB((s) => ({ ...s, header_handle: "", header_sample_name: "" }));
+      URL.revokeObjectURL(previewUrl);
+      setB((s) => ({ ...s, header_handle: "", header_sample_name: "", header_preview: "" }));
     } finally {
       setUploading(false);
     }
@@ -422,7 +428,7 @@ export default function TemplatesPage() {
 
                 <div className="field">
                   <label>Header <span className="muted">(optional)</span></label>
-                  <select value={b.header_format} onChange={(e) => setB((s) => ({ ...s, header_format: e.target.value as BuilderState["header_format"], header_handle: "", header_sample_name: "" }))}>
+                  <select value={b.header_format} onChange={(e) => setB((s) => { if (s.header_preview) URL.revokeObjectURL(s.header_preview); return { ...s, header_format: e.target.value as BuilderState["header_format"], header_handle: "", header_sample_name: "", header_preview: "" }; })}>
                     {HEADER_FORMATS.map((f) => <option key={f} value={f}>{f === "NONE" ? "None" : f.charAt(0) + f.slice(1).toLowerCase()}</option>)}
                   </select>
                   {b.header_format === "TEXT" && (
@@ -561,7 +567,17 @@ function PhonePreview({ state }: { state: BuilderState }) {
         <div style={{ background: "#e5ddd5", padding: "16px 12px", minHeight: 260, backgroundImage: "linear-gradient(rgba(229,221,213,.6),rgba(229,221,213,.6))" }}>
           <div style={{ background: "#fff", borderRadius: 8, padding: 8, maxWidth: 250, boxShadow: "0 1px 1px rgba(0,0,0,.1)", fontSize: 13, color: "#111b21" }}>
             {headerIcon && (
-              <div style={{ background: "#d9e2e6", borderRadius: 6, height: 96, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 34, marginBottom: 6 }}>{headerIcon}</div>
+              state.header_preview ? (
+                state.header_format === "VIDEO" ? (
+                  <video src={state.header_preview} style={{ width: "100%", borderRadius: 6, marginBottom: 6, maxHeight: 150, objectFit: "cover", background: "#000" }} muted />
+                ) : state.header_format === "IMAGE" ? (
+                  <img src={state.header_preview} alt="" style={{ width: "100%", borderRadius: 6, marginBottom: 6, maxHeight: 150, objectFit: "cover" }} />
+                ) : (
+                  <div style={{ background: "#d9e2e6", borderRadius: 6, padding: "10px 8px", display: "flex", alignItems: "center", gap: 6, marginBottom: 6, fontSize: 12 }}>📄 {state.header_sample_name || "Document"}</div>
+                )
+              ) : (
+                <div style={{ background: "#d9e2e6", borderRadius: 6, height: 96, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 34, marginBottom: 6 }}>{headerIcon}</div>
+              )
             )}
             {state.header_format === "TEXT" && state.header_text && (
               <div style={{ fontWeight: 700, marginBottom: 4 }}>{state.header_text}</div>

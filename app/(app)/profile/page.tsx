@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useUser } from "@/lib/user-context";
 import { PageHeader } from "@/components/PageHeader";
 import { api, ApiError } from "@/lib/api";
@@ -12,9 +12,32 @@ export default function ProfilePage() {
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
   const [phone, setPhone] = useState(user.phone ?? "");
+  const [address, setAddress] = useState(user.address ?? "");
+  const [avatar, setAvatar] = useState<string | null>(user.avatar_url ?? null);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const avatarRef = useRef<HTMLInputElement>(null);
+
+  // Auto-filled: the WhatsApp number connected to this workspace (read-only).
+  const [waNumber, setWaNumber] = useState<string | null>(null);
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    api.whatsapp.numbers(token)
+      .then((r) => {
+        const def = r.numbers.find((n) => n.is_default) ?? r.numbers[0];
+        if (def) setWaNumber(def.display_phone_number);
+      })
+      .catch(() => {});
+  }, []);
+
+  async function pickAvatar(file: File) {
+    if (file.size > 2 * 1024 * 1024) { setError("Image is too large — please use one under 2MB."); return; }
+    const reader = new FileReader();
+    reader.onload = () => setAvatar(reader.result as string);
+    reader.readAsDataURL(file);
+  }
 
   const [curPwd, setCurPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
@@ -35,7 +58,12 @@ export default function ProfilePage() {
     setSaving(true);
     setError(null);
     try {
-      await api.updateProfile(token, { name, email, phone: phone || undefined });
+      await api.updateProfile(token, {
+        name, email,
+        phone: phone || undefined,
+        address: address || undefined,
+        avatar_url: avatar,
+      });
       flash("Profile updated.", setNotice);
     } catch (err) {
       const e2 = err as ApiError;
@@ -84,6 +112,27 @@ export default function ProfilePage() {
           {error && <div className="error">{error}</div>}
           {notice && <div className="panel" style={{ background: "#e7f7ef", color: "#0a7d47", marginBottom: 12, padding: "8px 14px" }}>{notice}</div>}
           <form onSubmit={handleProfile}>
+            {/* Avatar */}
+            <div className="field">
+              <label>Profile Photo</label>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ width: 68, height: 68, borderRadius: "50%", overflow: "hidden", background: "#e7f0ee", display: "flex", alignItems: "center", justifyContent: "center", flex: "none", fontSize: 26, fontWeight: 700, color: "#0e7c7b", border: "1px solid var(--border)" }}>
+                  {avatar ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  ) : (
+                    (name || "?").trim().charAt(0).toUpperCase()
+                  )}
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input ref={avatarRef} type="file" accept="image/png,image/jpeg,image/webp" style={{ display: "none" }}
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) pickAvatar(f); e.target.value = ""; }} />
+                  <button type="button" className="btn-mini" onClick={() => avatarRef.current?.click()}>Upload</button>
+                  {avatar && <button type="button" className="btn-mini" style={{ color: "#c53030" }} onClick={() => setAvatar(null)}>Remove</button>}
+                </div>
+              </div>
+              <span className="muted" style={{ fontSize: 12, marginTop: 4, display: "block" }}>PNG/JPG, under 2MB.</span>
+            </div>
             <div className="field">
               <label>Full Name</label>
               <input value={name} onChange={(e) => setName(e.target.value)} required />
@@ -96,6 +145,19 @@ export default function ProfilePage() {
               <label>Phone <span className="muted">(optional)</span></label>
               <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91..." />
             </div>
+            <div className="field">
+              <label>Address <span className="muted">(optional)</span></label>
+              <textarea value={address} onChange={(e) => setAddress(e.target.value)} rows={2} placeholder="Street, city, state, PIN"
+                style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, fontSize: 14, fontFamily: "inherit", resize: "vertical" }} />
+            </div>
+            {waNumber && (
+              <div className="field">
+                <label className="muted" style={{ fontSize: 12 }}>Connected WhatsApp number</label>
+                <div style={{ fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ color: "#25d366" }}>✓</span> {waNumber}
+                </div>
+              </div>
+            )}
             <div className="field" style={{ marginTop: 4 }}>
               <label className="muted" style={{ fontSize: 12 }}>Role</label>
               <div style={{ fontSize: 14, fontWeight: 600, textTransform: "capitalize" }}>{user.is_super_admin ? "Super Admin" : user.roles?.[0] ?? "User"}</div>

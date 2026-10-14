@@ -57,7 +57,7 @@ export const api = {
 
   me: (token: string) => request<{ user: User }>("/auth/me", { token }),
 
-  updateProfile: (token: string, body: { name?: string; email?: string; phone?: string }) =>
+  updateProfile: (token: string, body: { name?: string; email?: string; phone?: string; address?: string; avatar_url?: string | null }) =>
     request<{ user: User }>("/auth/profile", { method: "PUT", body, token }),
 
   changePassword: (token: string, body: { current_password?: string; password: string; password_confirmation: string }) =>
@@ -435,9 +435,9 @@ export const api = {
   },
 
   assistant: {
-    ask: (token: string, question: string) =>
+    ask: (token: string, question: string, language?: string) =>
       request<{ answer: string; snapshot: Record<string, number | string> }>(
-        "/assistant/ask", { method: "POST", body: { question }, token }
+        "/assistant/ask", { method: "POST", body: { question, language }, token }
       ),
   },
 
@@ -627,6 +627,8 @@ export type User = {
   name: string;
   email: string;
   phone: string | null;
+  address: string | null;
+  avatar_url: string | null;
   is_super_admin: boolean;
   status: string;
   email_verified: boolean;
