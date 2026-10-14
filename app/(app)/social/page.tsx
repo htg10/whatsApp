@@ -125,7 +125,14 @@ export default function SocialPage() {
         })
       );
       const userToken = auth?.authResponse?.accessToken;
-      if (!userToken) { setError("Facebook login was cancelled."); return; }
+      if (!userToken) {
+        // Either the user closed the popup, or (commonly) Facebook showed
+        // "this app isn't available / needs a supported permission" because the
+        // Meta app isn't live / lacks Advanced Access. Offer the manual path.
+        setError("Couldn't finish Facebook login. If Facebook said the app isn’t available, your Meta app needs Facebook Login for Business + approved permissions (Live mode). Meanwhile, use the manual Page ID & token option below.");
+        setShowManual(true);
+        return;
+      }
       const res = await api.social.pages(token, userToken);
       if (!res.pages.length) {
         setError("No Facebook Pages found. Make sure you manage at least one Page and granted permission.");
@@ -579,6 +586,9 @@ export default function SocialPage() {
                 <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
                   Log in with Facebook and pick the Page you want to publish from. We&apos;ll auto-detect its linked Instagram account.
                 </p>
+                <div style={{ fontSize: 12, background: "#fff8e6", border: "1px solid #f3e2b3", color: "#8a6d1b", borderRadius: 8, padding: "8px 10px", marginBottom: 10 }}>
+                  ⚠️ If Facebook says <b>“this app isn’t available”</b>, the Meta app needs <b>Facebook Login for Business</b> added, the required permissions with <b>Advanced Access</b>, and the app in <b>Live</b> mode. Until then, use the manual Page ID &amp; token option below.
+                </div>
                 <button
                   className="btn"
                   style={{ background: "#1877f2", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}

@@ -238,7 +238,10 @@ a:hover { text-decoration: underline; }
 .switch { text-align: center; margin-top: 18px; font-size: 14px; color: var(--muted); }
 
 /* Dashboard */
-.shell { min-height: 100vh; display: flex; }
+/* Fixed-height app shell: the chrome (sidebar + top bar) stays put and only the
+   content area scrolls. This keeps full-height panes like the inbox from pushing
+   the whole document — so the chat composer never scrolls off screen. */
+.shell { height: 100dvh; display: flex; overflow: hidden; }
 .sidebar {
   width: 244px;
   background: linear-gradient(180deg, #0e5350 0%, #093a37 100%);
@@ -246,6 +249,7 @@ a:hover { text-decoration: underline; }
   padding: 20px 14px;
   flex-shrink: 0;
   border-right: 1px solid rgba(0,0,0,.15);
+  overflow-y: auto;
 }
 .sidebar .logo { color: #fff; font-weight: 700; font-size: 18px; display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
 .sidebar nav a {
@@ -256,8 +260,8 @@ a:hover { text-decoration: underline; }
 /* Active item carries the orange brand accent so the chrome matches the logo. */
 .sidebar nav a.active { background: rgba(242,111,33,.18); color: #fff; box-shadow: inset 3px 0 0 var(--accent); }
 
-.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.main-content { padding: 24px 34px; flex: 1; }
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+.main-content { padding: 24px 34px; flex: 1; min-height: 0; overflow-y: auto; }
 
 /* Top app bar — flush to the top, spanning the content, smoothly integrated. */
 .appbar {
@@ -418,8 +422,8 @@ a:hover { text-decoration: underline; }
 .preloader-text { color: var(--muted); font-size: 14px; letter-spacing: .2px; }
 
 /* Inbox */
-.inbox-page { display: flex; flex-direction: column; height: calc(100vh - 80px); }
-.inbox-layout { display: flex; height: calc(100vh - 80px); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--card); }
+.inbox-page { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.inbox-layout { display: flex; flex: 1; min-height: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--card); }
 .convo-list { width: 360px; border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
 .convo-list-header { padding: 14px 16px; border-bottom: 1px solid var(--border); }
 .convo-list-header input { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; outline: none; }
@@ -599,8 +603,12 @@ a:hover { text-decoration: underline; }
   .quick-actions { gap: 8px; }
   .quick-action { padding: 8px 12px; font-size: 13px; }
 
-  /* Inbox: single pane on mobile — list OR chat full-screen (WhatsApp-style) */
-  .inbox-page { height: calc(100dvh - 56px); }
+  /* Inbox: single pane on mobile — list OR chat full-screen (WhatsApp-style).
+     Fills the scrollable content area (shell is fixed-height); the mobile app bar
+     sits above it, so no viewport math needed here. */
+  .inbox-page { height: 100%; }
+  /* The content area itself shouldn't scroll on the inbox — the panes do. */
+  .main-content:has(.inbox-page) { overflow: hidden; padding: 0; }
   /* Maximise chat space: hide the filters toolbar while a chat is open */
   .inbox-page.chat-open .inbox-toolbar { display: none; }
   .inbox-toolbar { padding: 8px 12px !important; gap: 8px 10px !important; font-size: 12px; }
