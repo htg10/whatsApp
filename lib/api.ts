@@ -55,6 +55,12 @@ export const api = {
   login: (body: { email: string; password: string }) =>
     request<AuthPayload>("/auth/login", { method: "POST", body }),
 
+  requestOtp: (body: { phone: string }) =>
+    request<{ message: string; dev_code?: string }>("/auth/otp/request", { method: "POST", body }),
+
+  verifyOtp: (body: { phone: string; code: string }) =>
+    request<AuthPayload>("/auth/otp/verify", { method: "POST", body }),
+
   me: (token: string) => request<{ user: User }>("/auth/me", { token }),
 
   updateProfile: (token: string, body: { name?: string; email?: string; phone?: string; address?: string; avatar_url?: string | null }) =>
