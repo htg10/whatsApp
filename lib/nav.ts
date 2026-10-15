@@ -26,6 +26,7 @@ export const NAV: NavItem[] = [
   { label: "Team", href: "/team", icon: "👥", perm: "team.view" },
   { label: "Billing", href: "/billing", icon: "₹", perm: "billing.view" },
   { label: "Support", href: "/support", icon: "🎫" },
+  { label: "Profile", href: "/profile", icon: "👤" },
 ];
 
 // Platform super-admin navigation.

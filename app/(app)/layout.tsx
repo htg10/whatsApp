@@ -69,13 +69,17 @@ function TopBar({ user, onMenuToggle }: { user: User; onMenuToggle: () => void }
         </div>
         <button className="appbar-btn" title={dark ? "Light mode" : "Dark mode"} onClick={toggleTheme}>{dark ? "☀️" : "🌙"}</button>
         <button className="appbar-btn" title={fs ? "Exit full screen" : "Full screen"} onClick={toggleFullscreen}>{fs ? "🡼" : "⛶"}</button>
-        <div className="appbar-user">
-          <div className="appbar-avatar">{initials}</div>
+        <Link href="/profile" className="appbar-user" title="View &amp; edit your profile" style={{ textDecoration: "none", color: "inherit" }}>
+          <div className="appbar-avatar" style={{ overflow: "hidden", padding: 0 }}>
+            {user.avatar_url
+              ? <img src={user.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              : initials}
+          </div>
           <div style={{ lineHeight: 1.1 }}>
             <div style={{ fontSize: 13, fontWeight: 600 }}>{user.name}</div>
             <div className="muted" style={{ fontSize: 11 }}>{user.roles?.[0] ? roleLabel(user.roles[0]) : ""}</div>
           </div>
-        </div>
+        </Link>
       </div>
     </div>
   );

@@ -71,6 +71,9 @@ export const api = {
 
   ping: (token: string) => request<{ pong: boolean; tenant_id: number }>("/ping", { token }),
 
+  // Public pricing for the marketing landing page (no auth).
+  publicPlans: () => request<{ plans: PublicPlan[] }>("/public/plans"),
+
   health: () => request<{ status: string }>("/health"),
 
   whatsapp: {
@@ -647,6 +650,18 @@ export type User = {
   subscription: { status: string; plan_name: string; current_period_start: string | null; current_period_end: string | null } | null;
   tenant: Tenant | null;
   last_login_at: string | null;
+};
+
+export type PublicPlan = {
+  id: string;
+  name: string;
+  description: string | null;
+  billing_period: string;
+  price: number;
+  currency: string;
+  trial_days: number;
+  features: string[];
+  limits: Record<string, number | boolean>;
 };
 
 export type AuthPayload = {

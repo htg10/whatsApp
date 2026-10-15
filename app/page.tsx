@@ -3,26 +3,60 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getToken } from "@/lib/auth";
+import { api, PublicPlan } from "@/lib/api";
 
 const FEATURES = [
   { icon: "💬", title: "Team Inbox", desc: "One shared WhatsApp inbox — assign chats to agents, reply with media, reopen 24-hour windows with templates." },
   { icon: "📣", title: "Campaigns & Bulk Send", desc: "Blast approved templates to thousands, with delivery, read and reply reports you can download." },
   { icon: "🧩", title: "Template Builder", desc: "Design WhatsApp templates with a live phone preview and submit them to Meta for approval in one click." },
-  { icon: "🤖", title: "Chatbot", desc: "Auto-reply to keywords 24×7 with text or templates — no code, just rules." },
+  { icon: "🤖", title: "AI Chatbot", desc: "Auto-reply 24×7 with AI or keyword rules — capture leads and answer customers instantly, no code." },
   { icon: "📸", title: "Facebook & Instagram", desc: "Compose, schedule and publish posts and reels to FB & IG right from your workspace." },
   { icon: "📊", title: "Analytics & Roles", desc: "Track everything, manage agents with fine-grained access, and run it all on flexible plans." },
 ];
 
 const STATS = [
   { value: "3-in-1", label: "WhatsApp · Facebook · Instagram" },
-  { value: "24×7", label: "Automated replies" },
+  { value: "24×7", label: "AI automated replies" },
   { value: "1 Inbox", label: "For your whole team" },
   { value: "0 code", label: "Set up in minutes" },
 ];
 
+function fmtNum(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
+  if (n >= 1000) return n.toLocaleString("en-IN");
+  return String(n);
+}
+
+/** Turn a plan's numeric limits into readable bullet points. */
+function planBullets(plan: PublicPlan): string[] {
+  const l = plan.limits || {};
+  const out: string[] = [];
+  const num = (k: string) => (typeof l[k] === "number" ? (l[k] as number) : undefined);
+  const wa = num("whatsapp_numbers"); if (wa !== undefined) out.push(`${wa} WhatsApp number${wa === 1 ? "" : "s"}`);
+  const ag = num("agents"); if (ag !== undefined) out.push(`${ag} team agent${ag === 1 ? "" : "s"}`);
+  const co = num("contacts"); if (co !== undefined) out.push(`${fmtNum(co)} contacts`);
+  const ca = num("campaigns"); if (ca !== undefined) out.push(`${ca} campaigns / month`);
+  const wf = num("workflows"); if (wf !== undefined) out.push(`${wf} automation${wf === 1 ? "" : "s"}`);
+  out.push("AI chatbot & team inbox");
+  if (l.api_access === true) out.push("API & mobile app access");
+  return out;
+}
+
+function priceLabel(plan: PublicPlan): string {
+  if (!plan.price || plan.price <= 0) return "Free";
+  const symbol = plan.currency === "INR" ? "₹" : plan.currency + " ";
+  return `${symbol}${plan.price.toLocaleString("en-IN")}`;
+}
+
 export default function Landing() {
   const [loggedIn, setLoggedIn] = useState(false);
+  const [plans, setPlans] = useState<PublicPlan[]>([]);
+
   useEffect(() => { setLoggedIn(!!getToken()); }, []);
+  useEffect(() => { api.publicPlans().then((r) => setPlans(r.plans)).catch(() => {}); }, []);
+
+  // Highlight the middle plan as the popular one.
+  const popularIdx = plans.length >= 3 ? 1 : -1;
 
   return (
     <div className="lp">
@@ -30,6 +64,8 @@ export default function Landing() {
         <div className="lp-brand"><img src="/logo.png" alt="Heltog SocialFlow" /></div>
         <nav className="lp-nav-links">
           <a href="#features">Features</a>
+          <a href="#chatbot">Chatbot</a>
+          <a href="#pricing">Pricing</a>
           <a href="#why">Why us</a>
           {loggedIn
             ? <Link href="/dashboard" className="lp-btn lp-btn-solid">Go to dashboard</Link>
@@ -94,12 +130,78 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ---- AI Chatbot ---- */}
+      <section id="chatbot" className="lp-chatbot">
+        <div className="lp-chatbot-inner">
+          <div className="lp-chatbot-copy">
+            <span className="lp-eyebrow">AI Chatbot</span>
+            <h2>Your 24×7 AI assistant on WhatsApp</h2>
+            <p>
+              Reply to every customer instantly — even at 2 AM. The AI understands questions,
+              answers from your business info, captures hot leads, and hands off to your team
+              when it matters.
+            </p>
+            <ul className="lp-check-list">
+              <li>Instant AI replies in Hindi, English &amp; Hinglish</li>
+              <li>Keyword rules for instant, zero-wait answers</li>
+              <li>Auto-detects &amp; tags hot leads</li>
+              <li>Smart follow-ups to quiet customers</li>
+            </ul>
+            <Link href="/register" className="lp-btn lp-btn-accent lp-btn-lg">Try the chatbot free</Link>
+          </div>
+
+          {/* 3D chatbot visual */}
+          <div className="lp-bot-stage">
+            <div className="lp-bot-3d">
+              <div className="lp-bot-head">
+                <div className="lp-bot-eyes"><span /><span /></div>
+                <div className="lp-bot-antenna" />
+              </div>
+              <div className="lp-bot-badge">AI</div>
+            </div>
+            <div className="lp-bot-chat lp-bot-chat-1">How do I start a free trial?</div>
+            <div className="lp-bot-chat lp-bot-chat-2">Tap “Start free” — you&apos;re live in 2 minutes! 🚀</div>
+            <div className="lp-bot-ring" />
+          </div>
+        </div>
+      </section>
+
+      {/* ---- Pricing / Packages ---- */}
+      <section id="pricing" className="lp-pricing">
+        <h2>Simple, transparent pricing</h2>
+        <p className="lp-sub">Start free. Upgrade as you grow. No hidden fees.</p>
+        {plans.length === 0 ? (
+          <p className="lp-sub" style={{ opacity: 0.6 }}>Loading plans…</p>
+        ) : (
+          <div className="lp-price-grid">
+            {plans.map((plan, i) => (
+              <div key={plan.id} className={`lp-price-card ${i === popularIdx ? "lp-price-popular" : ""}`}>
+                {i === popularIdx && <div className="lp-price-tag">Most popular</div>}
+                <h3>{plan.name}</h3>
+                {plan.description && <p className="lp-price-desc">{plan.description}</p>}
+                <div className="lp-price-amount">
+                  <span className="lp-price-value">{priceLabel(plan)}</span>
+                  {plan.price > 0 && <span className="lp-price-per">/{plan.billing_period === "yearly" ? "yr" : "mo"}</span>}
+                </div>
+                {plan.trial_days > 0 && <div className="lp-price-trial">{plan.trial_days}-day free trial</div>}
+                <ul className="lp-check-list">
+                  {planBullets(plan).map((b) => <li key={b}>{b}</li>)}
+                </ul>
+                <Link href="/register" className={`lp-btn lp-btn-lg ${i === popularIdx ? "lp-btn-accent" : "lp-btn-outline"}`} style={{ width: "100%", justifyContent: "center" }}>
+                  {plan.price > 0 ? "Get started" : "Start free"}
+                </Link>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
       <section id="why" className="lp-why">
         <div className="lp-why-inner">
           <h2>Why Heltog SocialFlow?</h2>
           <div className="lp-why-grid">
             <div><div className="lp-why-ic">⚡</div><h4>Fast to launch</h4><p>Connect a number, import contacts, and start messaging the same day.</p></div>
-            <div><div className="lp-why-ic">🔒</div><h4>Secure & isolated</h4><p>Every business&apos;s data is fully separated — agents only ever see their own workspace.</p></div>
+            <div><div className="lp-why-ic">🔒</div><h4>Secure &amp; isolated</h4><p>Every business&apos;s data is fully separated — agents only ever see their own workspace.</p></div>
             <div><div className="lp-why-ic">📈</div><h4>Built to scale</h4><p>From one agent to a hundred, with plans and permissions that grow with you.</p></div>
           </div>
         </div>
