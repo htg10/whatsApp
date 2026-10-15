@@ -48,71 +48,99 @@ const PLANS: PlanCard[] = [
   },
 ];
 
-/** A friendly, 3D-style chatbot mascot drawn as inline SVG (crisp at any size). */
+/** A friendly, premium 3D-style chatbot mascot drawn as inline SVG (crisp at any size). */
 function BotIllustration() {
   return (
-    <svg viewBox="0 0 320 340" width="100%" height="100%" role="img" aria-label="AI chatbot" style={{ maxWidth: 320, display: "block", overflow: "visible" }}>
+    <svg viewBox="0 0 320 360" width="100%" height="100%" role="img" aria-label="AI chatbot" style={{ maxWidth: 320, display: "block", overflow: "visible" }}>
       <defs>
-        <linearGradient id="botBody" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#2fe0c6" />
-          <stop offset="0.5" stopColor="#12b4ac" />
-          <stop offset="1" stopColor="#0a6f7e" />
+        <radialGradient id="botAura" cx="0.5" cy="0.45" r="0.6">
+          <stop offset="0" stopColor="#5df0d8" stopOpacity="0.45" />
+          <stop offset="1" stopColor="#5df0d8" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="botBody" x1="0.2" y1="0" x2="0.8" y2="1">
+          <stop offset="0" stopColor="#5ff0d8" />
+          <stop offset="0.45" stopColor="#1fc9bb" />
+          <stop offset="1" stopColor="#0a6476" />
         </linearGradient>
-        <linearGradient id="botBelly" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#ffffff" />
-          <stop offset="1" stopColor="#d9f3ef" />
+        <linearGradient id="botRim" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ffffff" stopOpacity="0.9" />
+          <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
         </linearGradient>
-        <radialGradient id="botScreen" cx="0.5" cy="0.4" r="0.8">
-          <stop offset="0" stopColor="#123a44" />
-          <stop offset="1" stopColor="#06222a" />
+        <radialGradient id="botScreen" cx="0.5" cy="0.35" r="0.85">
+          <stop offset="0" stopColor="#1a4651" />
+          <stop offset="0.7" stopColor="#0a2a33" />
+          <stop offset="1" stopColor="#051a20" />
+        </radialGradient>
+        <radialGradient id="botEye" cx="0.5" cy="0.4" r="0.6">
+          <stop offset="0" stopColor="#d6fffa" />
+          <stop offset="0.45" stopColor="#4ff0dd" />
+          <stop offset="1" stopColor="#12b9ad" />
         </radialGradient>
         <linearGradient id="botAccent" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#ffb257" />
+          <stop offset="0" stopColor="#ffc06a" />
           <stop offset="1" stopColor="#f26f21" />
         </linearGradient>
-        <filter id="botSoft" x="-40%" y="-40%" width="180%" height="180%">
-          <feDropShadow dx="0" dy="18" stdDeviation="18" floodColor="#001b1f" floodOpacity="0.45" />
+        <linearGradient id="botPill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ffffff" />
+          <stop offset="1" stopColor="#e4f7f3" />
+        </linearGradient>
+        <filter id="botSoft" x="-50%" y="-50%" width="200%" height="200%">
+          <feDropShadow dx="0" dy="22" stdDeviation="20" floodColor="#001015" floodOpacity="0.5" />
         </filter>
-        <filter id="botGlow" x="-60%" y="-60%" width="220%" height="220%">
-          <feGaussianBlur stdDeviation="4" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+        <filter id="botGlow" x="-80%" y="-80%" width="260%" height="260%">
+          <feGaussianBlur stdDeviation="5" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
         </filter>
+        <filter id="botBlur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9" /></filter>
       </defs>
 
-      {/* ground shadow */}
-      <ellipse cx="160" cy="314" rx="96" ry="16" fill="#00161a" opacity="0.35" />
+      {/* aura + ground shadow */}
+      <circle cx="160" cy="180" r="140" fill="url(#botAura)" />
+      <ellipse cx="160" cy="330" rx="104" ry="18" fill="#00141a" opacity="0.4" filter="url(#botBlur)" />
 
       {/* antenna */}
-      <rect x="156" y="20" width="8" height="30" rx="4" fill="#0a6f7e" />
-      <circle cx="160" cy="18" r="11" fill="url(#botAccent)" filter="url(#botGlow)" />
+      <rect x="155" y="22" width="10" height="34" rx="5" fill="#0a6476" />
+      <circle cx="160" cy="20" r="13" fill="url(#botAccent)" filter="url(#botGlow)" />
+      <circle cx="156" cy="16" r="4" fill="#fff" opacity="0.8" />
 
-      {/* headphones band + ears */}
-      <path d="M70 150 A90 90 0 0 1 250 150" fill="none" stroke="#0a6f7e" strokeWidth="12" strokeLinecap="round" />
-      <rect x="48" y="138" width="34" height="62" rx="16" fill="url(#botAccent)" />
-      <rect x="238" y="138" width="34" height="62" rx="16" fill="url(#botAccent)" />
+      {/* headphones ears */}
+      <rect x="44" y="150" width="40" height="76" rx="20" fill="url(#botAccent)" filter="url(#botSoft)" />
+      <rect x="236" y="150" width="40" height="76" rx="20" fill="url(#botAccent)" filter="url(#botSoft)" />
+      <rect x="52" y="158" width="12" height="40" rx="6" fill="#fff" opacity="0.35" />
+      <rect x="244" y="158" width="12" height="40" rx="6" fill="#fff" opacity="0.25" />
 
       {/* body */}
-      <rect x="66" y="52" width="188" height="186" rx="46" fill="url(#botBody)" filter="url(#botSoft)" />
-      {/* top sheen */}
-      <rect x="84" y="66" width="152" height="60" rx="30" fill="#ffffff" opacity="0.18" />
+      <rect x="60" y="56" width="200" height="206" rx="52" fill="url(#botBody)" filter="url(#botSoft)" />
+      {/* rim light + top sheen */}
+      <rect x="60" y="56" width="200" height="206" rx="52" fill="none" stroke="url(#botRim)" strokeWidth="3" opacity="0.6" />
+      <ellipse cx="160" cy="92" rx="86" ry="34" fill="#ffffff" opacity="0.22" />
 
       {/* face screen */}
-      <rect x="94" y="92" width="132" height="104" rx="30" fill="url(#botScreen)" />
-      {/* eyes */}
-      <circle cx="132" cy="138" r="15" fill="#39e0cf" filter="url(#botGlow)" />
-      <circle cx="188" cy="138" r="15" fill="#39e0cf" filter="url(#botGlow)" />
-      <circle cx="137" cy="133" r="5" fill="#eafffb" />
-      <circle cx="193" cy="133" r="5" fill="#eafffb" />
-      {/* smile */}
-      <path d="M128 166 Q160 190 192 166" fill="none" stroke="#39e0cf" strokeWidth="6" strokeLinecap="round" />
+      <rect x="88" y="98" width="144" height="114" rx="36" fill="url(#botScreen)" />
+      <rect x="88" y="98" width="144" height="114" rx="36" fill="none" stroke="#000" strokeOpacity="0.25" strokeWidth="2" />
+      {/* glossy screen highlight */}
+      <path d="M100 118 Q160 104 220 118 L220 134 Q160 122 100 134 Z" fill="#ffffff" opacity="0.08" />
 
-      {/* belly / AI panel */}
-      <rect x="110" y="210" width="100" height="40" rx="20" fill="url(#botBelly)" />
-      <text x="160" y="237" textAnchor="middle" fontSize="20" fontWeight="800" fill="#f26f21" fontFamily="system-ui, sans-serif">AI</text>
+      {/* eyes */}
+      <circle cx="131" cy="150" r="20" fill="url(#botEye)" filter="url(#botGlow)" />
+      <circle cx="189" cy="150" r="20" fill="url(#botEye)" filter="url(#botGlow)" />
+      <circle cx="137" cy="143" r="6" fill="#ffffff" />
+      <circle cx="195" cy="143" r="6" fill="#ffffff" />
+      {/* cheeks */}
+      <circle cx="108" cy="178" r="8" fill="#ff8a5c" opacity="0.55" />
+      <circle cx="212" cy="178" r="8" fill="#ff8a5c" opacity="0.55" />
+      {/* smile */}
+      <path d="M138 182 Q160 200 182 182" fill="none" stroke="#5ff0dd" strokeWidth="6" strokeLinecap="round" filter="url(#botGlow)" />
+
+      {/* AI pill */}
+      <rect x="112" y="224" width="96" height="40" rx="20" fill="url(#botPill)" filter="url(#botSoft)" />
+      <text x="160" y="251" textAnchor="middle" fontSize="20" fontWeight="800" fill="#f26f21" fontFamily="system-ui, sans-serif" letterSpacing="1">AI</text>
 
       {/* sparkles */}
-      <g fill="#ffd27a">
-        <path d="M284 90 l4 10 10 4 -10 4 -4 10 -4 -10 -10 -4 10 -4 z" opacity="0.9" />
-        <path d="M40 70 l3 7 7 3 -7 3 -3 7 -3 -7 -7 -3 7 -3 z" opacity="0.75" />
+      <g fill="#ffd98a">
+        <path d="M286 96 l5 12 12 5 -12 5 -5 12 -5 -12 -12 -5 12 -5 z" opacity="0.95" />
+        <path d="M34 74 l3.5 8 8 3.5 -8 3.5 -3.5 8 -3.5 -8 -8 -3.5 8 -3.5 z" opacity="0.8" />
+        <circle cx="270" cy="210" r="4" opacity="0.7" />
+        <circle cx="52" cy="128" r="3.5" opacity="0.6" />
       </g>
     </svg>
   );
