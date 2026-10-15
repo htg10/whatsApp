@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getToken } from "@/lib/auth";
-import { api, PublicPlan } from "@/lib/api";
 
 const FEATURES = [
   { icon: "💬", title: "Team Inbox", desc: "One shared WhatsApp inbox — assign chats to agents, reply with media, reopen 24-hour windows with templates." },
@@ -21,32 +20,33 @@ const STATS = [
   { value: "0 code", label: "Set up in minutes" },
 ];
 
-function fmtNum(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
-  if (n >= 1000) return n.toLocaleString("en-IN");
-  return String(n);
-}
+type PlanCard = { name: string; price: string; period: string; popular?: boolean; bullets: string[]; cta: string };
 
-/** Turn a plan's numeric limits into readable bullet points. */
-function planBullets(plan: PublicPlan): string[] {
-  const l = plan.limits || {};
-  const out: string[] = [];
-  const num = (k: string) => (typeof l[k] === "number" ? (l[k] as number) : undefined);
-  const wa = num("whatsapp_numbers"); if (wa !== undefined) out.push(`${wa} WhatsApp number${wa === 1 ? "" : "s"}`);
-  const ag = num("agents"); if (ag !== undefined) out.push(`${ag} team agent${ag === 1 ? "" : "s"}`);
-  const co = num("contacts"); if (co !== undefined) out.push(`${fmtNum(co)} contacts`);
-  const ca = num("campaigns"); if (ca !== undefined) out.push(`${ca} campaigns / month`);
-  const wf = num("workflows"); if (wf !== undefined) out.push(`${wf} automation${wf === 1 ? "" : "s"}`);
-  out.push("AI chatbot & team inbox");
-  if (l.api_access === true) out.push("API & mobile app access");
-  return out;
-}
-
-function priceLabel(plan: PublicPlan): string {
-  if (!plan.price || plan.price <= 0) return "Free";
-  const symbol = plan.currency === "INR" ? "₹" : plan.currency + " ";
-  return `${symbol}${plan.price.toLocaleString("en-IN")}`;
-}
+// Pricing shown on the landing page. Kept in sync with the admin Plans page.
+const PLANS: PlanCard[] = [
+  {
+    name: "Starter",
+    price: "₹14,999",
+    period: "yr",
+    cta: "Get started",
+    bullets: ["1 team agent", "500 contacts", "10 campaigns / month", "50 chatbot flows", "50 templates", "Reports & AI chatbot"],
+  },
+  {
+    name: "Business",
+    price: "₹24,999",
+    period: "yr",
+    popular: true,
+    cta: "Get started",
+    bullets: ["2 team agents", "1,000 contacts", "20 campaigns / month", "100 chatbot flows", "100 templates", "Social publishing, export & automations"],
+  },
+  {
+    name: "Enterprise",
+    price: "₹34,999",
+    period: "yr",
+    cta: "Get started",
+    bullets: ["5 team agents", "Unlimited contacts", "Unlimited campaigns", "Unlimited chatbots", "Unlimited templates", "API access + everything in Business"],
+  },
+];
 
 /** A friendly, 3D-style chatbot mascot drawn as inline SVG (crisp at any size). */
 function BotIllustration() {
@@ -120,19 +120,8 @@ function BotIllustration() {
 
 export default function Landing() {
   const [loggedIn, setLoggedIn] = useState(false);
-  const [plans, setPlans] = useState<PublicPlan[]>([]);
-  const [plansLoaded, setPlansLoaded] = useState(false);
 
   useEffect(() => { setLoggedIn(!!getToken()); }, []);
-  useEffect(() => {
-    api.publicPlans()
-      .then((r) => setPlans(r.plans))
-      .catch(() => {})
-      .finally(() => setPlansLoaded(true));
-  }, []);
-
-  // Highlight the middle plan as the popular one.
-  const popularIdx = plans.length >= 3 ? 1 : -1;
 
   return (
     <div className="lp">
@@ -225,36 +214,26 @@ export default function Landing() {
       {/* ---- Pricing / Packages ---- */}
       <section id="pricing" className="lp-pricing">
         <h2>Simple, transparent pricing</h2>
-        <p className="lp-sub">Start free. Upgrade as you grow. No hidden fees.</p>
-        {!plansLoaded ? (
-          <p className="lp-sub" style={{ opacity: 0.6 }}>Loading plans…</p>
-        ) : plans.length === 0 ? (
-          <div className="lp-cta" style={{ justifyContent: "center", marginTop: 24 }}>
-            <Link href="/register" className="lp-btn lp-btn-accent lp-btn-lg">Start your free trial</Link>
-            <Link href="/login" className="lp-btn lp-btn-outline lp-btn-lg">See plans inside</Link>
-          </div>
-        ) : (
-          <div className="lp-price-grid">
-            {plans.map((plan, i) => (
-              <div key={plan.id} className={`lp-price-card ${i === popularIdx ? "lp-price-popular" : ""}`}>
-                {i === popularIdx && <div className="lp-price-tag">Most popular</div>}
-                <h3>{plan.name}</h3>
-                {plan.description && <p className="lp-price-desc">{plan.description}</p>}
-                <div className="lp-price-amount">
-                  <span className="lp-price-value">{priceLabel(plan)}</span>
-                  {plan.price > 0 && <span className="lp-price-per">/{plan.billing_period === "yearly" ? "yr" : "mo"}</span>}
-                </div>
-                {plan.trial_days > 0 && <div className="lp-price-trial">{plan.trial_days}-day free trial</div>}
-                <ul className="lp-check-list">
-                  {planBullets(plan).map((b) => <li key={b}>{b}</li>)}
-                </ul>
-                <Link href="/register" className={`lp-btn lp-btn-lg ${i === popularIdx ? "lp-btn-accent" : "lp-btn-outline"}`} style={{ width: "100%", justifyContent: "center" }}>
-                  {plan.price > 0 ? "Get started" : "Start free"}
-                </Link>
+        <p className="lp-sub">Pick the plan that fits your team. Upgrade anytime.</p>
+        <div className="lp-price-grid">
+          {PLANS.map((plan) => (
+            <div key={plan.name} className={`lp-price-card ${plan.popular ? "lp-price-popular" : ""}`}>
+              {plan.popular && <div className="lp-price-tag">Most popular</div>}
+              <h3>{plan.name}</h3>
+              <div className="lp-price-amount">
+                <span className="lp-price-value">{plan.price}</span>
+                <span className="lp-price-per">/{plan.period}</span>
               </div>
-            ))}
-          </div>
-        )}
+              <div className="lp-price-trial">14-day free trial</div>
+              <ul className="lp-check-list">
+                {plan.bullets.map((b) => <li key={b}>{b}</li>)}
+              </ul>
+              <Link href="/register" className={`lp-btn lp-btn-lg ${plan.popular ? "lp-btn-accent" : "lp-btn-outline"}`} style={{ width: "100%", justifyContent: "center" }}>
+                {plan.cta}
+              </Link>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* ---- Features (below pricing) ---- */}
