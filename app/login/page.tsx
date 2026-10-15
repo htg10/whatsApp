@@ -67,7 +67,7 @@ export default function LoginPage() {
     setNotice(null);
     setLoading(true);
     try {
-      const res = await api.requestOtp({ phone });
+      const res = await api.requestOtp({ phone: `91${phone}` });
       setOtpSent(true);
       setResendIn(30);
       setNotice(res.dev_code ? `Code sent. (Dev code: ${res.dev_code})` : "We've sent a 6-digit code to your mobile.");
@@ -84,7 +84,7 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const data = await api.verifyOtp({ phone, code: otp });
+      const data = await api.verifyOtp({ phone: `91${phone}`, code: otp });
       saveToken(data.token);
       router.push("/dashboard");
     } catch (err) {
@@ -112,10 +112,24 @@ export default function LoginPage() {
 
         <div className="auth-divider"><span>or</span></div>
 
-        {/* Password / Mobile OTP toggle */}
-        <div className="filter-tabs" style={{ marginBottom: 14 }}>
-          <button type="button" className={mode === "password" ? "active" : ""} onClick={() => { setMode("password"); setError(null); setNotice(null); }}>Email &amp; Password</button>
-          <button type="button" className={mode === "otp" ? "active" : ""} onClick={() => { setMode("otp"); setError(null); setNotice(null); }}>Mobile OTP</button>
+        {/* Password / Mobile OTP — full-width buttons, like "Continue with Google" */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+          <button
+            type="button"
+            className="google-btn"
+            onClick={() => { setMode("password"); setError(null); setNotice(null); }}
+            style={mode === "password" ? { borderColor: "#0e7c7b", boxShadow: "0 0 0 1px #0e7c7b inset", color: "#0e7c7b" } : undefined}
+          >
+            <span style={{ fontSize: 16 }}>📧</span> Email &amp; Password
+          </button>
+          <button
+            type="button"
+            className="google-btn"
+            onClick={() => { setMode("otp"); setError(null); setNotice(null); }}
+            style={mode === "otp" ? { borderColor: "#0e7c7b", boxShadow: "0 0 0 1px #0e7c7b inset", color: "#0e7c7b" } : undefined}
+          >
+            <span style={{ fontSize: 16 }}>📱</span> Mobile OTP
+          </button>
         </div>
 
         {mode === "password" ? (
@@ -134,8 +148,21 @@ export default function LoginPage() {
           <form onSubmit={sendOtp}>
             <div className="field">
               <label>Mobile number</label>
-              <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required placeholder="+91 98765 43210" autoComplete="tel" />
-              <span style={{ fontSize: 12, color: "var(--muted)", marginTop: 4, display: "block" }}>Use the number saved on your account.</span>
+              <div style={{ display: "flex", alignItems: "stretch", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
+                <span style={{ display: "flex", alignItems: "center", padding: "0 12px", background: "#f6f8f9", borderRight: "1px solid var(--border)", color: "var(--text)", fontSize: 14, fontWeight: 600 }}>+91</span>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  required
+                  placeholder="98765 43210"
+                  autoComplete="tel"
+                  style={{ flex: 1, border: "none", outline: "none", padding: "11px 12px", fontSize: 14, background: "transparent" }}
+                />
+              </div>
+              <span style={{ fontSize: 12, color: "var(--muted)", marginTop: 4, display: "block" }}>Enter your 10-digit mobile number (the one saved on your account).</span>
             </div>
             <button className="btn" disabled={loading}>{loading ? "Sending…" : "Send OTP"}</button>
           </form>
