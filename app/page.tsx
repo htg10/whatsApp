@@ -153,7 +153,6 @@ export default function Landing() {
               <Link href="/login" className="lp-btn lp-btn-accent lp-btn-lg">Login</Link>
               <Link href="/register" className="lp-btn lp-btn-ghost lp-btn-lg">Get Started</Link>
             </div>
-            <div className="lp-trust">No credit card needed</div>
           </div>
 
           {/* Chat mockup */}
