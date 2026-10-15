@@ -6,6 +6,31 @@ import { PageHeader } from "@/components/PageHeader";
 import { api, ApiError } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 
+/** Read an image file, scale it to fit `max`×`max`, and return a compact JPEG data URL. */
+function downscaleImage(file: File, max: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("read failed"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("decode failed"));
+      img.onload = () => {
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { reject(new Error("no canvas")); return; }
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", 0.85));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function ProfilePage() {
   const user = useUser();
 
@@ -33,10 +58,16 @@ export default function ProfilePage() {
   }, []);
 
   async function pickAvatar(file: File) {
-    if (file.size > 2 * 1024 * 1024) { setError("Image is too large — please use one under 2MB."); return; }
-    const reader = new FileReader();
-    reader.onload = () => setAvatar(reader.result as string);
-    reader.readAsDataURL(file);
+    if (file.size > 5 * 1024 * 1024) { setError("Image is too large — please use one under 5MB."); return; }
+    setError(null);
+    try {
+      // Downscale to a small square so the stored data URL stays light (~tens of KB)
+      // regardless of the original file size.
+      const dataUrl = await downscaleImage(file, 400);
+      setAvatar(dataUrl);
+    } catch {
+      setError("Couldn't read that image. Please try a different PNG or JPG.");
+    }
   }
 
   const [curPwd, setCurPwd] = useState("");
