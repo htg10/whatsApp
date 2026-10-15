@@ -112,23 +112,23 @@ export default function LoginPage() {
 
         <div className="auth-divider"><span>or</span></div>
 
-        {/* Password / Mobile OTP — full-width buttons, like "Continue with Google" */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+        {/* Password / Mobile OTP — two buttons in one row, styled like "Continue with Google" */}
+        <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
           <button
             type="button"
             className="google-btn"
             onClick={() => { setMode("password"); setError(null); setNotice(null); }}
-            style={mode === "password" ? { borderColor: "#0e7c7b", boxShadow: "0 0 0 1px #0e7c7b inset", color: "#0e7c7b" } : undefined}
+            style={{ flex: 1, minWidth: 0, padding: "10px 8px", fontSize: 13, gap: 6, ...(mode === "password" ? { borderColor: "#0e7c7b", boxShadow: "0 0 0 1px #0e7c7b inset", color: "#0e7c7b" } : {}) }}
           >
-            <span style={{ fontSize: 16 }}>📧</span> Email &amp; Password
+            <span style={{ fontSize: 15 }}>📧</span> Email &amp; Password
           </button>
           <button
             type="button"
             className="google-btn"
             onClick={() => { setMode("otp"); setError(null); setNotice(null); }}
-            style={mode === "otp" ? { borderColor: "#0e7c7b", boxShadow: "0 0 0 1px #0e7c7b inset", color: "#0e7c7b" } : undefined}
+            style={{ flex: 1, minWidth: 0, padding: "10px 8px", fontSize: 13, gap: 6, ...(mode === "otp" ? { borderColor: "#0e7c7b", boxShadow: "0 0 0 1px #0e7c7b inset", color: "#0e7c7b" } : {}) }}
           >
-            <span style={{ fontSize: 16 }}>📱</span> Mobile OTP
+            <span style={{ fontSize: 15 }}>📱</span> Mobile OTP
           </button>
         </div>
 
@@ -162,7 +162,7 @@ export default function LoginPage() {
                   style={{ flex: 1, border: "none", outline: "none", padding: "11px 12px", fontSize: 14, background: "transparent" }}
                 />
               </div>
-              <span style={{ fontSize: 12, color: "var(--muted)", marginTop: 4, display: "block" }}>Enter your 10-digit mobile number (the one saved on your account).</span>
+              <span style={{ fontSize: 12, color: "var(--muted)", marginTop: 4, display: "block" }}>Enter your 10-digit mobile number.</span>
             </div>
             <button className="btn" disabled={loading}>{loading ? "Sending…" : "Send OTP"}</button>
           </form>
