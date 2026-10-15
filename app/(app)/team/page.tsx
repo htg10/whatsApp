@@ -162,8 +162,10 @@ export default function TeamPage() {
                   <tr key={m.id} style={{ borderBottom: "1px solid #f4f6f7" }}>
                     <td style={{ padding: "12px 14px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#128c7e,#25d366)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13 }}>
-                          {initials(m.name)}
+                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#128c7e,#25d366)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, overflow: "hidden", flexShrink: 0 }}>
+                          {m.avatar_url
+                            ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={m.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            : initials(m.name)}
                         </div>
                         <div>
                           <div style={{ fontWeight: 600 }}>{m.name} {isMe && <span className="muted" style={{ fontSize: 12 }}>(you)</span>}</div>

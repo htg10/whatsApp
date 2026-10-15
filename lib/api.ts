@@ -553,6 +553,7 @@ export type TeamMember = {
   id: string;
   name: string;
   email: string;
+  avatar_url: string | null;
   status: string;
   role: string;            // "admin" | "agent"
   role_label: string;      // "Admin" | "Agent"
@@ -971,6 +972,7 @@ export type AgentItem = {
   id: string;
   name: string;
   email: string;
+  avatar_url?: string | null;
   roles: string[];
   active_conversations_count: number;
   total_handled: number;

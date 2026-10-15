@@ -109,8 +109,11 @@ export default function AgentsPage() {
                   <div style={{
                     width: 40, height: 40, borderRadius: "50%", background: "#25d366", color: "#fff",
                     display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 16,
+                    overflow: "hidden", flexShrink: 0,
                   }}>
-                    {a.name.slice(0, 1).toUpperCase()}
+                    {a.avatar_url
+                      ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={a.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      : a.name.slice(0, 1).toUpperCase()}
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</div>
