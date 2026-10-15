@@ -47,7 +47,7 @@ export default function RegisterPage() {
         <div className="brand" style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
           <img src="/logo.png" alt="Heltog SocialFlow" style={{ width: "100%", maxWidth: 220, height: "auto", borderRadius: 10 }} />
         </div>
-        <p className="subtitle" style={{ textAlign: "center" }}>Create your company workspace — 14-day free trial</p>
+        <p className="subtitle" style={{ textAlign: "center" }}>Create your company workspace</p>
 
         {error && <div className="error">{error}</div>}
 

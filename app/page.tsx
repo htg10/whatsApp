@@ -151,9 +151,9 @@ export default function Landing() {
             </p>
             <div className="lp-cta">
               <Link href="/login" className="lp-btn lp-btn-accent lp-btn-lg">Login</Link>
-              <Link href="/register" className="lp-btn lp-btn-ghost lp-btn-lg">Start free</Link>
+              <Link href="/register" className="lp-btn lp-btn-ghost lp-btn-lg">Get Started</Link>
             </div>
-            <div className="lp-trust">No credit card needed · 14-day free trial</div>
+            <div className="lp-trust">No credit card needed</div>
           </div>
 
           {/* Chat mockup */}
@@ -198,15 +198,15 @@ export default function Landing() {
               <li>Auto-detects &amp; tags hot leads</li>
               <li>Smart follow-ups to quiet customers</li>
             </ul>
-            <Link href="/register" className="lp-btn lp-btn-accent lp-btn-lg">Try the chatbot free</Link>
+            <Link href="/register" className="lp-btn lp-btn-accent lp-btn-lg">Try the chatbot</Link>
           </div>
 
           {/* 3D chatbot visual */}
           <div className="lp-bot-stage">
             <div className="lp-bot-ring" />
             <div className="lp-bot-float"><BotIllustration /></div>
-            <div className="lp-bot-chat lp-bot-chat-1">How do I start a free trial?</div>
-            <div className="lp-bot-chat lp-bot-chat-2">Tap “Start free” — you&apos;re live in 2 minutes! 🚀</div>
+            <div className="lp-bot-chat lp-bot-chat-1">How do I get started?</div>
+            <div className="lp-bot-chat lp-bot-chat-2">Tap “Get Started” — you&apos;re live in 2 minutes! 🚀</div>
           </div>
         </div>
       </section>
@@ -224,7 +224,6 @@ export default function Landing() {
                 <span className="lp-price-value">{plan.price}</span>
                 <span className="lp-price-per">/{plan.period}</span>
               </div>
-              <div className="lp-price-trial">14-day free trial</div>
               <ul className="lp-check-list">
                 {plan.bullets.map((b) => <li key={b}>{b}</li>)}
               </ul>
