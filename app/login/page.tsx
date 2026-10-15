@@ -67,10 +67,10 @@ export default function LoginPage() {
     setNotice(null);
     setLoading(true);
     try {
-      const res = await api.requestOtp({ phone: `91${phone}` });
+      await api.requestOtp({ phone: `91${phone}` });
       setOtpSent(true);
       setResendIn(30);
-      setNotice(res.dev_code ? `Code sent. (Dev code: ${res.dev_code})` : "We've sent a 6-digit code to your mobile.");
+      setNotice("We've sent a 6-digit code to your WhatsApp.");
     } catch (err) {
       const e2 = err as ApiError;
       setError(e2.errors ? Object.values(e2.errors).flat().join(" ") : e2.message ?? "Couldn't send the code.");
