@@ -191,7 +191,7 @@ export default function LoginPage() {
           New here? <Link href="/register">Create an account</Link>
         </div>
       </div>
-      <div style={{ marginTop: 18, fontSize: 12, color: "var(--muted)", textAlign: "center" }}>
+      <div style={{ marginTop: 18, fontSize: 12, color: "rgba(255,255,255,0.85)", textAlign: "center" }}>
         © {new Date().getFullYear()} Heltog Technologies Pvt Ltd
       </div>
     </div>
