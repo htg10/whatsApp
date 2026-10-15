@@ -48,12 +48,88 @@ function priceLabel(plan: PublicPlan): string {
   return `${symbol}${plan.price.toLocaleString("en-IN")}`;
 }
 
+/** A friendly, 3D-style chatbot mascot drawn as inline SVG (crisp at any size). */
+function BotIllustration() {
+  return (
+    <svg viewBox="0 0 320 340" width="100%" height="100%" role="img" aria-label="AI chatbot" style={{ maxWidth: 320, display: "block", overflow: "visible" }}>
+      <defs>
+        <linearGradient id="botBody" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#2fe0c6" />
+          <stop offset="0.5" stopColor="#12b4ac" />
+          <stop offset="1" stopColor="#0a6f7e" />
+        </linearGradient>
+        <linearGradient id="botBelly" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ffffff" />
+          <stop offset="1" stopColor="#d9f3ef" />
+        </linearGradient>
+        <radialGradient id="botScreen" cx="0.5" cy="0.4" r="0.8">
+          <stop offset="0" stopColor="#123a44" />
+          <stop offset="1" stopColor="#06222a" />
+        </radialGradient>
+        <linearGradient id="botAccent" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ffb257" />
+          <stop offset="1" stopColor="#f26f21" />
+        </linearGradient>
+        <filter id="botSoft" x="-40%" y="-40%" width="180%" height="180%">
+          <feDropShadow dx="0" dy="18" stdDeviation="18" floodColor="#001b1f" floodOpacity="0.45" />
+        </filter>
+        <filter id="botGlow" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="4" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+      </defs>
+
+      {/* ground shadow */}
+      <ellipse cx="160" cy="314" rx="96" ry="16" fill="#00161a" opacity="0.35" />
+
+      {/* antenna */}
+      <rect x="156" y="20" width="8" height="30" rx="4" fill="#0a6f7e" />
+      <circle cx="160" cy="18" r="11" fill="url(#botAccent)" filter="url(#botGlow)" />
+
+      {/* headphones band + ears */}
+      <path d="M70 150 A90 90 0 0 1 250 150" fill="none" stroke="#0a6f7e" strokeWidth="12" strokeLinecap="round" />
+      <rect x="48" y="138" width="34" height="62" rx="16" fill="url(#botAccent)" />
+      <rect x="238" y="138" width="34" height="62" rx="16" fill="url(#botAccent)" />
+
+      {/* body */}
+      <rect x="66" y="52" width="188" height="186" rx="46" fill="url(#botBody)" filter="url(#botSoft)" />
+      {/* top sheen */}
+      <rect x="84" y="66" width="152" height="60" rx="30" fill="#ffffff" opacity="0.18" />
+
+      {/* face screen */}
+      <rect x="94" y="92" width="132" height="104" rx="30" fill="url(#botScreen)" />
+      {/* eyes */}
+      <circle cx="132" cy="138" r="15" fill="#39e0cf" filter="url(#botGlow)" />
+      <circle cx="188" cy="138" r="15" fill="#39e0cf" filter="url(#botGlow)" />
+      <circle cx="137" cy="133" r="5" fill="#eafffb" />
+      <circle cx="193" cy="133" r="5" fill="#eafffb" />
+      {/* smile */}
+      <path d="M128 166 Q160 190 192 166" fill="none" stroke="#39e0cf" strokeWidth="6" strokeLinecap="round" />
+
+      {/* belly / AI panel */}
+      <rect x="110" y="210" width="100" height="40" rx="20" fill="url(#botBelly)" />
+      <text x="160" y="237" textAnchor="middle" fontSize="20" fontWeight="800" fill="#f26f21" fontFamily="system-ui, sans-serif">AI</text>
+
+      {/* sparkles */}
+      <g fill="#ffd27a">
+        <path d="M284 90 l4 10 10 4 -10 4 -4 10 -4 -10 -10 -4 10 -4 z" opacity="0.9" />
+        <path d="M40 70 l3 7 7 3 -7 3 -3 7 -3 -7 -7 -3 7 -3 z" opacity="0.75" />
+      </g>
+    </svg>
+  );
+}
+
 export default function Landing() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [plans, setPlans] = useState<PublicPlan[]>([]);
+  const [plansLoaded, setPlansLoaded] = useState(false);
 
   useEffect(() => { setLoggedIn(!!getToken()); }, []);
-  useEffect(() => { api.publicPlans().then((r) => setPlans(r.plans)).catch(() => {}); }, []);
+  useEffect(() => {
+    api.publicPlans()
+      .then((r) => setPlans(r.plans))
+      .catch(() => {})
+      .finally(() => setPlansLoaded(true));
+  }, []);
 
   // Highlight the middle plan as the popular one.
   const popularIdx = plans.length >= 3 ? 1 : -1;
@@ -116,20 +192,6 @@ export default function Landing() {
         </div>
       </section>
 
-      <section id="features" className="lp-section">
-        <h2>Everything your team needs</h2>
-        <p className="lp-sub">From the first hello to the closed deal — all channels, one screen.</p>
-        <div className="lp-grid">
-          {FEATURES.map((f) => (
-            <div key={f.title} className="lp-card">
-              <div className="lp-card-icon">{f.icon}</div>
-              <h3>{f.title}</h3>
-              <p>{f.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* ---- AI Chatbot ---- */}
       <section id="chatbot" className="lp-chatbot">
         <div className="lp-chatbot-inner">
@@ -152,16 +214,10 @@ export default function Landing() {
 
           {/* 3D chatbot visual */}
           <div className="lp-bot-stage">
-            <div className="lp-bot-3d">
-              <div className="lp-bot-head">
-                <div className="lp-bot-eyes"><span /><span /></div>
-                <div className="lp-bot-antenna" />
-              </div>
-              <div className="lp-bot-badge">AI</div>
-            </div>
+            <div className="lp-bot-ring" />
+            <div className="lp-bot-float"><BotIllustration /></div>
             <div className="lp-bot-chat lp-bot-chat-1">How do I start a free trial?</div>
             <div className="lp-bot-chat lp-bot-chat-2">Tap “Start free” — you&apos;re live in 2 minutes! 🚀</div>
-            <div className="lp-bot-ring" />
           </div>
         </div>
       </section>
@@ -170,8 +226,13 @@ export default function Landing() {
       <section id="pricing" className="lp-pricing">
         <h2>Simple, transparent pricing</h2>
         <p className="lp-sub">Start free. Upgrade as you grow. No hidden fees.</p>
-        {plans.length === 0 ? (
+        {!plansLoaded ? (
           <p className="lp-sub" style={{ opacity: 0.6 }}>Loading plans…</p>
+        ) : plans.length === 0 ? (
+          <div className="lp-cta" style={{ justifyContent: "center", marginTop: 24 }}>
+            <Link href="/register" className="lp-btn lp-btn-accent lp-btn-lg">Start your free trial</Link>
+            <Link href="/login" className="lp-btn lp-btn-outline lp-btn-lg">See plans inside</Link>
+          </div>
         ) : (
           <div className="lp-price-grid">
             {plans.map((plan, i) => (
@@ -194,6 +255,21 @@ export default function Landing() {
             ))}
           </div>
         )}
+      </section>
+
+      {/* ---- Features (below pricing) ---- */}
+      <section id="features" className="lp-section">
+        <h2>Everything your team needs</h2>
+        <p className="lp-sub">From the first hello to the closed deal — all channels, one screen.</p>
+        <div className="lp-grid">
+          {FEATURES.map((f) => (
+            <div key={f.title} className="lp-card">
+              <div className="lp-card-icon">{f.icon}</div>
+              <h3>{f.title}</h3>
+              <p>{f.desc}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section id="why" className="lp-why">
