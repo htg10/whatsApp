@@ -481,7 +481,7 @@ export const api = {
 
   social: {
     connection: (token: string) =>
-      request<{ connection: SocialConnection | null; facebook_app_id: string | null; api_version: string }>("/social/connection", { token }),
+      request<{ connection: SocialConnection | null; facebook_app_id: string | null; facebook_config_id: string | null; api_version: string }>("/social/connection", { token }),
     pages: (token: string, userToken: string) =>
       request<{ pages: { id: string; name: string; access_token: string; ig_user_id: string | null; ig_username: string | null }[] }>(
         "/social/pages", { method: "POST", body: { user_token: userToken }, token }

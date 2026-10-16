@@ -10,7 +10,7 @@ import { LoadingBlock } from "@/components/Preloader";
 type FbAuthResponse = { authResponse?: { accessToken?: string } | null; status?: string };
 type FbSdk = {
   init: (o: { appId: string; cookie?: boolean; xfbml?: boolean; version: string }) => void;
-  login: (cb: (r: FbAuthResponse) => void, o: { scope: string; return_scopes?: boolean }) => void;
+  login: (cb: (r: FbAuthResponse) => void, o: { scope?: string; return_scopes?: boolean; config_id?: string }) => void;
 };
 
 export default function SocialPage() {
@@ -33,6 +33,7 @@ export default function SocialPage() {
 
   // Facebook login page-picker
   const [fbAppId, setFbAppId] = useState<string | null>(null);
+  const [fbConfigId, setFbConfigId] = useState<string | null>(null);
   const [apiVersion, setApiVersion] = useState("v23.0");
   const [fbBusy, setFbBusy] = useState(false);
   const [pages, setPages] = useState<{ id: string; name: string; access_token: string; ig_user_id: string | null; ig_username: string | null }[]>([]);
@@ -87,6 +88,7 @@ export default function SocialPage() {
       ]);
       setConnection(c.connection);
       setFbAppId(c.facebook_app_id);
+      setFbConfigId(c.facebook_config_id ?? null);
       setApiVersion(c.api_version || "v23.0");
       setPosts(p.posts);
     } catch (err) {
@@ -119,10 +121,14 @@ export default function SocialPage() {
     try {
       const FB = await ensureFb(fbAppId, apiVersion);
       const auth = await new Promise<FbAuthResponse>((resolve) =>
-        FB.login((r) => resolve(r), {
-          scope: "pages_show_list,pages_manage_posts,business_management,instagram_basic,instagram_content_publish",
-          return_scopes: true,
-        })
+        // "Facebook Login for Business" apps need a config_id (permissions are set
+        // on the configuration in the Meta dashboard). Classic login uses scopes.
+        FB.login((r) => resolve(r), fbConfigId
+          ? { config_id: fbConfigId }
+          : {
+              scope: "pages_show_list,pages_manage_posts,business_management,instagram_basic,instagram_content_publish",
+              return_scopes: true,
+            })
       );
       const userToken = auth?.authResponse?.accessToken;
       if (!userToken) {
