@@ -37,9 +37,13 @@ export default function SocialPage() {
   const [apiVersion, setApiVersion] = useState("v23.0");
   const [fbBusy, setFbBusy] = useState(false);
   const [pages, setPages] = useState<{ id: string; name: string; access_token: string; ig_user_id: string | null; ig_username: string | null }[]>([]);
+  const [pageSearch, setPageSearch] = useState("");
 
   // compose
   const [caption, setCaption] = useState("");
+  const [hashtags, setHashtags] = useState("");
+  const [location, setLocation] = useState("");
+  const [postType, setPostType] = useState<"post" | "reel">("post");
   const [imageUrl, setImageUrl] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageMode, setImageMode] = useState<"url" | "upload">("url");
@@ -237,8 +241,14 @@ export default function SocialPage() {
     setPosting(true);
     setError(null);
     try {
+      // Fold hashtags and location into the caption (IG/FB carry them as text).
+      const fullCaption = [
+        caption.trim(),
+        hashtags.trim(),
+        location.trim() ? `📍 ${location.trim()}` : "",
+      ].filter(Boolean).join("\n\n");
       const res = await api.social.createPost(token, {
-        caption,
+        caption: fullCaption,
         targets,
         image_url: imageMode === "url" ? imageUrl : undefined,
         image: imageMode === "upload" ? imageFile : undefined,
@@ -246,7 +256,7 @@ export default function SocialPage() {
       });
       const st = res.post.status;
       flash(st === "scheduled" ? "Post scheduled." : st === "published" ? "Published! 🎉" : st === "partial" ? "Published with some errors — see below." : "Post failed — see details below.");
-      setCaption(""); setImageUrl(""); setImageFile(null); if (fileRef.current) fileRef.current.value = "";
+      setCaption(""); setHashtags(""); setLocation(""); setImageUrl(""); setImageFile(null); if (fileRef.current) fileRef.current.value = "";
       setScheduleOn(false); setScheduledAt("");
       await load();
     } catch (err) {
@@ -387,27 +397,62 @@ export default function SocialPage() {
               <form onSubmit={submitPost}>
                 <div className="grid" style={{ gridTemplateColumns: "1.2fr 1fr", gap: 18, alignItems: "start" }}>
                   <div>
+                    {/* Post or Reel */}
                     <div className="field">
-                      <label>Caption</label>
-                      <textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={5} placeholder="Write a caption… #hashtags welcome" />
+                      <label>What are you posting?</label>
+                      <div style={{ display: "flex", gap: 10 }}>
+                        {([["post", "📸", "Post", "Photo for the feed"], ["reel", "🎬", "Reel", "Short video"]] as const).map(([val, icon, label, sub]) => (
+                          <button key={val} type="button" onClick={() => { setPostType(val); setImageFile(null); setImageUrl(""); }}
+                            style={{
+                              flex: 1, textAlign: "left", padding: "11px 14px", borderRadius: 12, cursor: "pointer",
+                              border: postType === val ? "2px solid #c13584" : "1px solid var(--border)",
+                              background: postType === val ? "#fdeef5" : "#fff",
+                            }}>
+                            <div style={{ fontWeight: 700, fontSize: 14, color: postType === val ? "#c13584" : "var(--text)" }}>{icon} {label}</div>
+                            <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 2 }}>{sub}</div>
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     <div className="field">
-                      <label>Photo or video (Reel)</label>
-                      <div className="filter-tabs" style={{ marginBottom: 10 }}>
-                        <button type="button" className={imageMode === "url" ? "active" : ""} onClick={() => setImageMode("url")}>Paste URL</button>
-                        <button type="button" className={imageMode === "upload" ? "active" : ""} onClick={() => setImageMode("upload")}>Upload</button>
+                      <label>Caption</label>
+                      <textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={4} placeholder="Write a caption for your audience…" />
+                    </div>
+
+                    <div className="field">
+                      <label># Hashtags <span className="muted">(optional)</span></label>
+                      <input value={hashtags} onChange={(e) => setHashtags(e.target.value)} placeholder="#sale #festive #newlaunch" />
+                    </div>
+
+                    <div className="field">
+                      <label>📍 Location <span className="muted">(optional)</span></label>
+                      <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Lajpat Nagar, New Delhi" />
+                    </div>
+
+                    <div className="field">
+                      <label>{postType === "reel" ? "Video (Reel)" : "Photo"}</label>
+                      <div style={{ display: "inline-flex", background: "#eef2f1", borderRadius: 10, padding: 3, marginBottom: 10 }}>
+                        {(["url", "upload"] as const).map((m) => (
+                          <button key={m} type="button" onClick={() => setImageMode(m)}
+                            style={{
+                              padding: "6px 16px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600,
+                              background: imageMode === m ? "#fff" : "transparent",
+                              color: imageMode === m ? "#111b21" : "#5b6b73",
+                              boxShadow: imageMode === m ? "0 1px 3px rgba(0,0,0,.12)" : "none",
+                            }}>
+                            {m === "url" ? "🔗 Paste URL" : "⬆ Upload"}
+                          </button>
+                        ))}
                       </div>
                       {imageMode === "url" ? (
-                        <input key="url-input" value={imageUrl ?? ""} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://example.com/photo.jpg or video.mp4" />
+                        <input key="url-input" value={imageUrl ?? ""} onChange={(e) => setImageUrl(e.target.value)} placeholder={postType === "reel" ? "https://example.com/video.mp4" : "https://example.com/photo.jpg"} />
                       ) : (
-                        <input key="file-input" ref={fileRef} type="file" accept="image/*,video/mp4,video/quicktime" onChange={(e) => setImageFile(e.target.files?.[0] ?? null)} />
+                        <input key="file-input" ref={fileRef} type="file" accept={postType === "reel" ? "video/mp4,video/quicktime" : "image/jpeg,image/png,image/webp"} onChange={(e) => setImageFile(e.target.files?.[0] ?? null)} />
                       )}
-                      <span className="muted" style={{ fontSize: 12 }}>
-                        Photo (JPG/PNG) or video (MP4/MOV). A video posts as a <b>Reel</b> on Instagram.
-                        {imageMode === "upload"
-                          ? " ⚠️ Upload only works on the live site — Instagram can't fetch files from localhost. On localhost use Paste URL with a public link."
-                          : " Use a direct public link that opens as just the image/video (not a web page)."}
+                      <span className="muted" style={{ fontSize: 12, display: "block", marginTop: 4 }}>
+                        {postType === "reel" ? "MP4/MOV video — posts as a Reel on Instagram." : "JPG/PNG photo — posts to the feed."}
+                        {imageMode === "upload" && " ⚠️ Upload works on the live site only (not localhost)."}
                       </span>
                     </div>
 
@@ -493,7 +538,10 @@ export default function SocialPage() {
                           <span style={{ color: "#5b6b73", fontSize: 13 }}>🖼️ Photo / video preview</span>
                         )}
                       </div>
-                      <div style={{ padding: 12, fontSize: 13, color: "#3b4a54", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{caption || <span className="muted">Your caption appears here…</span>}</div>
+                      <div style={{ padding: 12, fontSize: 13, color: "#3b4a54", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                        {[caption.trim(), hashtags.trim(), location.trim() ? `📍 ${location.trim()}` : ""].filter(Boolean).join("\n\n")
+                          || <span className="muted">Your caption appears here…</span>}
+                      </div>
                     </div>
                     {imgDims && (
                       <div className="muted" style={{ fontSize: 12, textAlign: "center", marginTop: 8 }}>
@@ -569,23 +617,46 @@ export default function SocialPage() {
 
             {pages.length > 0 ? (
               <>
-                <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>Choose the Page you want to connect:</p>
-                <div style={{ display: "grid", gap: 8, maxHeight: 340, overflowY: "auto" }}>
-                  {pages.map((p) => (
-                    <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, border: "1px solid var(--border)", borderRadius: 10, padding: "10px 12px" }}>
-                      <div>
-                        <div style={{ fontWeight: 600 }}>{p.name}</div>
-                        <div className="muted" style={{ fontSize: 12 }}>
-                          {p.ig_username ? `Instagram: @${p.ig_username}` : "No Instagram linked"}
-                        </div>
-                      </div>
-                      <button className="btn" style={{ width: "auto", padding: "7px 16px" }} disabled={connecting} onClick={() => connectPage(p)}>
-                        {connecting ? "…" : "Connect"}
-                      </button>
-                    </div>
-                  ))}
+                <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>Choose the Page you want to connect ({pages.length}):</p>
+                {/* Search */}
+                <div style={{ position: "relative", marginBottom: 10 }}>
+                  <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 14, color: "#8696a0" }}>🔍</span>
+                  <input
+                    value={pageSearch}
+                    onChange={(e) => setPageSearch(e.target.value)}
+                    placeholder="Search your Pages…"
+                    style={{ width: "100%", padding: "9px 12px 9px 34px", border: "1px solid var(--border)", borderRadius: 10, fontSize: 13 }}
+                  />
                 </div>
-                <button type="button" className="btn-mini" style={{ marginTop: 12 }} onClick={() => setPages([])}>Back</button>
+                {(() => {
+                  const filtered = pages.filter((p) =>
+                    p.name.toLowerCase().includes(pageSearch.toLowerCase()) ||
+                    (p.ig_username ?? "").toLowerCase().includes(pageSearch.toLowerCase()));
+                  if (filtered.length === 0) return <p className="muted" style={{ fontSize: 13 }}>No Pages match “{pageSearch}”.</p>;
+                  return (
+                    <div style={{ display: "grid", gap: 8, maxHeight: 320, overflowY: "auto", paddingRight: 2 }}>
+                      {filtered.map((p) => (
+                        <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 11, border: "1px solid var(--border)", borderRadius: 12, padding: "10px 12px", transition: "border-color .12s" }}>
+                          <div style={{ width: 40, height: 40, borderRadius: "50%", flexShrink: 0, background: "linear-gradient(135deg,#1877f2,#3b5998)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 16 }}>
+                            {(p.name[0] ?? "?").toUpperCase()}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                            <div className="muted" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+                              {p.ig_username
+                                ? <><span style={{ color: "#c13584" }}>◙</span> @{p.ig_username}</>
+                                : "No Instagram linked"}
+                            </div>
+                          </div>
+                          <button className="btn" style={{ width: "auto", padding: "7px 16px", flexShrink: 0 }} disabled={connecting} onClick={() => connectPage(p)}>
+                            {connecting ? "…" : "Connect"}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+                <button type="button" className="btn-mini" style={{ marginTop: 12 }} onClick={() => { setPages([]); setPageSearch(""); }}>Back</button>
               </>
             ) : (
               <>
