@@ -16,7 +16,8 @@ export const NAV: NavItem[] = [
   { label: "Hot List", href: "/hot-list", icon: "🔥", perm: "contacts.view" },
   { label: "Black List", href: "/blacklist", icon: "🚫", perm: "contacts.view" },
   { label: "Campaigns", href: "/campaigns", icon: "📣", perm: "campaigns.view" },
-  { label: "Social", href: "/social", icon: "📸", perm: "campaigns.view", feature: "social" },
+  // Social publishing hidden for now (re-enable by uncommenting):
+  // { label: "Social", href: "/social", icon: "📸", perm: "campaigns.view", feature: "social" },
   { label: "Automations", href: "/automations", icon: "⚙", perm: "workflows.view", feature: "automations" },
   { label: "Chatbot", href: "/chatbot", icon: "🤖", perm: "bots.view", feature: "chatbot" },
   { label: "Agents", href: "/agents", icon: "🎧", perm: "agents.view" },
