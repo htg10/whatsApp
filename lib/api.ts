@@ -209,6 +209,8 @@ export const api = {
       request<{ bulk_send: BulkSendDetail }>("/whatsapp/bulk-send", { method: "POST", body, token }),
     retry: (token: string, id: string) =>
       request<{ bulk_send: BulkSendDetail }>(`/whatsapp/bulk-sends/${id}/retry`, { method: "POST", token }),
+    remove: (token: string, id: string) =>
+      request<{ message: string }>(`/whatsapp/bulk-sends/${id}`, { method: "DELETE", token }),
     uploadHeader: async (token: string, file: File) => {
       const form = new FormData();
       form.append("file", file);

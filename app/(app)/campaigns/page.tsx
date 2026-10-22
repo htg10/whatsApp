@@ -392,6 +392,23 @@ export default function CampaignsPage() {
     }
   }
 
+  async function deleteBulk(uuid: string) {
+    const token = getToken();
+    if (!token) return;
+    if (!window.confirm("Delete this bulk send and its recipient history? This cannot be undone.")) return;
+    setError(null);
+    try {
+      await api.bulk.remove(token, uuid);
+      setNotice("Bulk send deleted.");
+      if (bulkDetail?.uuid === uuid) setBulkDetail(null);
+      // Stay on the current page unless it just became empty.
+      const page = sends.length === 1 && bulkPage > 1 ? bulkPage - 1 : bulkPage;
+      loadBulkSends(false, page);
+    } catch (err) {
+      setError((err as ApiError).message);
+    }
+  }
+
   async function viewBulkDetail(uuid: string) {
     const token = getToken();
     if (!token) return;
@@ -790,6 +807,9 @@ export default function CampaignsPage() {
                   {retryingId === bulkDetail.uuid ? "Retrying…" : `Retry ${bulkDetail.failed_count} failed`}
                 </button>
               )}
+              {bulkDetail.status !== "processing" && (
+                <button className="btn-mini danger" onClick={() => deleteBulk(bulkDetail.uuid)}>Delete</button>
+              )}
               <button className="btn-mini" onClick={() => setBulkDetail(null)}>Close</button>
             </div>
           </div>
@@ -894,6 +914,9 @@ export default function CampaignsPage() {
                           </button>
                         )}
                         <button className="btn-mini" onClick={() => viewBulkDetail(s.uuid)}>View</button>
+                        {s.status !== "processing" && (
+                          <button className="btn-mini danger" style={{ marginLeft: 6 }} onClick={() => deleteBulk(s.uuid)}>Delete</button>
+                        )}
                       </td>
                     </tr>
                   ))}
