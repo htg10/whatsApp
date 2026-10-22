@@ -194,8 +194,11 @@ export const api = {
   },
 
   bulk: {
-    list: (token: string, page?: number) => {
-      const qs = page ? `?page=${page}` : "";
+    list: (token: string, page?: number, perPage?: number) => {
+      const params = new URLSearchParams();
+      if (page) params.set("page", String(page));
+      if (perPage) params.set("per_page", String(perPage));
+      const qs = params.toString() ? `?${params.toString()}` : "";
       return request<{ bulk_sends: BulkSend[]; meta: { current_page: number; last_page: number; total: number } }>(
         `/whatsapp/bulk-sends${qs}`, { token }
       );
@@ -774,6 +777,7 @@ export type BulkSend = {
   total: number;
   sent_count: number;
   failed_count: number;
+  delivered_count?: number;
   phone_number?: { id: string; display_phone_number: string } | null;
   created_at: string | null;
 };

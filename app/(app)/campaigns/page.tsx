@@ -86,6 +86,13 @@ export default function CampaignsPage() {
   const [bulkHeaderUploading, setBulkHeaderUploading] = useState(false);
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [bulkDetail, setBulkDetail] = useState<BulkSendDetail | null>(null);
+  // Bulk-send list pagination (15 per page, server-side).
+  const [bulkPage, setBulkPage] = useState(1);
+  const [bulkLastPage, setBulkLastPage] = useState(1);
+  const [bulkTotal, setBulkTotal] = useState(0);
+  // Recipient list pagination inside the detail panel (15 per page, client-side).
+  const [recipientPage, setRecipientPage] = useState(1);
+  const RECIPIENTS_PER_PAGE = 15;
 
   const loadCampaigns = useCallback(async (silent = false) => {
     const token = getToken();
@@ -101,13 +108,16 @@ export default function CampaignsPage() {
     }
   }, []);
 
-  const loadBulkSends = useCallback(async (silent = false) => {
+  const loadBulkSends = useCallback(async (silent = false, page = 1) => {
     const token = getToken();
     if (!token) return;
     if (!silent) setLoading(true);
     try {
-      const res = await api.bulk.list(token);
+      const res = await api.bulk.list(token, page, 15);
       setSends(res.bulk_sends);
+      setBulkPage(res.meta.current_page);
+      setBulkLastPage(res.meta.last_page);
+      setBulkTotal(res.meta.total);
     } catch (err) {
       if (!silent) setError((err as ApiError).message);
     } finally {
@@ -134,7 +144,7 @@ export default function CampaignsPage() {
       const token = getToken();
       if (!token) return;
       if (tab === "bulk") {
-        loadBulkSends(true);
+        loadBulkSends(true, bulkPage);
         if (activeBulkDetailId) {
           try { setBulkDetail((await api.bulk.get(token, activeBulkDetailId)).bulk_send); } catch {}
         }
@@ -146,7 +156,7 @@ export default function CampaignsPage() {
       }
     }, 5000);
     return () => clearInterval(timer);
-  }, [tab, bulkActive, campaignActive, activeBulkDetailId, activeCampaignDetailId, loadBulkSends, loadCampaigns]);
+  }, [tab, bulkActive, campaignActive, activeBulkDetailId, activeCampaignDetailId, bulkPage, loadBulkSends, loadCampaigns]);
 
   async function openCreateForm() {
     const token = getToken();
@@ -388,12 +398,23 @@ export default function CampaignsPage() {
     try {
       const res = await api.bulk.get(token, uuid);
       setBulkDetail(res.bulk_send);
+      setRecipientPage(1);
     } catch (err) {
       setError((err as ApiError).message);
     }
   }
 
   const parsedCount = parseNumbers(bulkNumbers).length;
+
+  // Detail-panel breakdown, computed from the loaded recipients so the summary
+  // always matches the rows below it. "Delivered" is the confirmed subset of
+  // "Sent"; "Awaiting" = sent but not yet confirmed by Meta.
+  const rcp = bulkDetail?.recipients ?? [];
+  const bulkDeliveredN = rcp.filter((r) => r.status === "delivered").length;
+  const bulkFailedN = rcp.filter((r) => r.status === "failed").length;
+  const bulkAwaitingN = rcp.filter((r) => r.status === "sent" || r.status === "pending").length;
+  const recipientTotalPages = Math.max(1, Math.ceil(rcp.length / RECIPIENTS_PER_PAGE));
+  const recipientsOnPage = rcp.slice((recipientPage - 1) * RECIPIENTS_PER_PAGE, recipientPage * RECIPIENTS_PER_PAGE);
 
   function downloadCampaignReport(c: CampaignItem) {
     downloadCsv(
@@ -776,31 +797,55 @@ export default function CampaignsPage() {
             <div><span className="muted">Template:</span> {bulkDetail.template_name}</div>
             <div><span className="muted">Language:</span> {bulkDetail.language}</div>
             <div><span className="muted">Status:</span> <StatusBadge status={bulkDetail.status} /></div>
-            <div><span className="muted">Total:</span> {bulkDetail.total}</div>
-            <div><span className="muted">Sent:</span> <span style={{ color: "#0a7d47" }}>{bulkDetail.sent_count}</span></div>
-            <div><span className="muted">Failed:</span> <span style={{ color: "#c53030" }}>{bulkDetail.failed_count}</span></div>
+            <div><span className="muted">Total:</span> <b>{bulkDetail.total}</b></div>
+            <div><span className="muted">Delivered:</span> <span style={{ color: "#0a7d47", fontWeight: 600 }}>{bulkDeliveredN}</span></div>
+            <div><span className="muted">Sent (awaiting):</span> <span style={{ color: "#667781", fontWeight: 600 }}>{bulkAwaitingN}</span></div>
+            <div><span className="muted">Failed:</span> <span style={{ color: "#c53030", fontWeight: 600 }}>{bulkFailedN}</span></div>
+          </div>
+          <div className="muted" style={{ fontSize: 12, marginBottom: 10 }}>
+            <b>Delivered</b> = WhatsApp confirmed it reached the phone. <b>Sent (awaiting)</b> = accepted by WhatsApp,
+            delivery not yet confirmed. <b>Failed</b> = WhatsApp did not deliver (e.g. number not on WhatsApp, or
+            marketing frequency cap). Delivered + Sent + Failed = Total.
           </div>
           {bulkDetail.recipients.length > 0 && (
-            <div style={{ overflowX: "auto", maxHeight: 300, overflow: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                <thead>
-                  <tr style={{ borderBottom: "2px solid var(--border)" }}>
-                    <th style={{ textAlign: "left", padding: "6px 4px" }}>Phone</th>
-                    <th style={{ textAlign: "left", padding: "6px 4px" }}>Status</th>
-                    <th style={{ textAlign: "left", padding: "6px 4px" }}>Error</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bulkDetail.recipients.map((r) => (
-                    <tr key={r.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                      <td style={{ padding: "6px 4px", fontFamily: "monospace" }}>{r.phone}</td>
-                      <td style={{ padding: "6px 4px" }}><StatusBadge status={r.status} /></td>
-                      <td style={{ padding: "6px 4px", color: "var(--danger)", fontSize: 11 }}>{r.error_message || "—"}</td>
+            <>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ borderBottom: "2px solid var(--border)" }}>
+                      <th style={{ textAlign: "left", padding: "6px 4px", width: 40 }}>#</th>
+                      <th style={{ textAlign: "left", padding: "6px 4px" }}>Phone</th>
+                      <th style={{ textAlign: "left", padding: "6px 4px" }}>Status</th>
+                      <th style={{ textAlign: "left", padding: "6px 4px" }}>Error</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {recipientsOnPage.map((r, i) => (
+                      <tr key={r.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                        <td style={{ padding: "6px 4px", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>
+                          {(recipientPage - 1) * RECIPIENTS_PER_PAGE + i + 1}
+                        </td>
+                        <td style={{ padding: "6px 4px", fontFamily: "monospace" }}>{r.phone}</td>
+                        <td style={{ padding: "6px 4px" }}><StatusBadge status={r.status} /></td>
+                        <td style={{ padding: "6px 4px", color: "var(--danger)", fontSize: 11 }}>{r.error_message || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {recipientTotalPages > 1 && (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, gap: 8, flexWrap: "wrap" }}>
+                  <span className="muted" style={{ fontSize: 12 }}>
+                    Showing {(recipientPage - 1) * RECIPIENTS_PER_PAGE + 1}–{Math.min(recipientPage * RECIPIENTS_PER_PAGE, rcp.length)} of {rcp.length}
+                  </span>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <button className="btn-mini" disabled={recipientPage <= 1} onClick={() => setRecipientPage((p) => Math.max(1, p - 1))}>← Prev</button>
+                    <span style={{ fontSize: 12 }}>Page {recipientPage} / {recipientTotalPages}</span>
+                    <button className="btn-mini" disabled={recipientPage >= recipientTotalPages} onClick={() => setRecipientPage((p) => Math.min(recipientTotalPages, p + 1))}>Next →</button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -823,6 +868,7 @@ export default function CampaignsPage() {
                     <th style={{ textAlign: "left", padding: "8px 4px" }}>Status</th>
                     <th style={{ textAlign: "right", padding: "8px 4px" }}>Total</th>
                     <th style={{ textAlign: "right", padding: "8px 4px" }}>Sent</th>
+                    <th style={{ textAlign: "right", padding: "8px 4px" }}>Delivered</th>
                     <th style={{ textAlign: "right", padding: "8px 4px" }}>Failed</th>
                     <th style={{ textAlign: "left", padding: "8px 4px" }}>Date</th>
                     <th style={{ textAlign: "right", padding: "8px 4px" }}></th>
@@ -831,12 +877,13 @@ export default function CampaignsPage() {
                 <tbody>
                   {sends.map((s, i) => (
                     <tr key={s.uuid} style={{ borderBottom: "1px solid var(--border)" }}>
-                      <td style={{ padding: "8px 4px", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{i + 1}</td>
+                      <td style={{ padding: "8px 4px", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{(bulkPage - 1) * 15 + i + 1}</td>
                       <td style={{ padding: "8px 4px", fontFamily: "monospace" }}>{s.template_name}</td>
                       <td style={{ padding: "8px 4px" }}>{s.language}</td>
                       <td style={{ padding: "8px 4px" }}><StatusBadge status={s.status} /></td>
                       <td style={{ padding: "8px 4px", textAlign: "right" }}>{s.total}</td>
                       <td style={{ padding: "8px 4px", textAlign: "right", color: "#0a7d47" }}>{s.sent_count}</td>
+                      <td style={{ padding: "8px 4px", textAlign: "right", color: "#007bfc" }}>{s.delivered_count ?? "—"}</td>
                       <td style={{ padding: "8px 4px", textAlign: "right", color: "#c53030" }}>{s.failed_count}</td>
                       <td style={{ padding: "8px 4px" }}>{s.created_at ? new Date(s.created_at).toLocaleDateString("en-IN") : "—"}</td>
                       <td style={{ padding: "8px 4px", textAlign: "right", whiteSpace: "nowrap" }}>
@@ -852,6 +899,17 @@ export default function CampaignsPage() {
                   ))}
                 </tbody>
               </table>
+              {bulkLastPage > 1 && (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, gap: 8, flexWrap: "wrap" }}>
+                  <span className="muted" style={{ fontSize: 12 }}>
+                    Page {bulkPage} of {bulkLastPage} · {bulkTotal} bulk sends
+                  </span>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <button className="btn-mini" disabled={bulkPage <= 1 || loading} onClick={() => loadBulkSends(false, bulkPage - 1)}>← Prev</button>
+                    <button className="btn-mini" disabled={bulkPage >= bulkLastPage || loading} onClick={() => loadBulkSends(false, bulkPage + 1)}>Next →</button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
