@@ -90,9 +90,6 @@ export default function CampaignsPage() {
   const [bulkPage, setBulkPage] = useState(1);
   const [bulkLastPage, setBulkLastPage] = useState(1);
   const [bulkTotal, setBulkTotal] = useState(0);
-  // Recipient list pagination inside the detail panel (15 per page, client-side).
-  const [recipientPage, setRecipientPage] = useState(1);
-  const RECIPIENTS_PER_PAGE = 15;
 
   const loadCampaigns = useCallback(async (silent = false) => {
     const token = getToken();
@@ -415,7 +412,6 @@ export default function CampaignsPage() {
     try {
       const res = await api.bulk.get(token, uuid);
       setBulkDetail(res.bulk_send);
-      setRecipientPage(1);
     } catch (err) {
       setError((err as ApiError).message);
     }
@@ -430,8 +426,6 @@ export default function CampaignsPage() {
   const bulkDeliveredN = rcp.filter((r) => r.status === "delivered").length;
   const bulkFailedN = rcp.filter((r) => r.status === "failed").length;
   const bulkAwaitingN = rcp.filter((r) => r.status === "sent" || r.status === "pending").length;
-  const recipientTotalPages = Math.max(1, Math.ceil(rcp.length / RECIPIENTS_PER_PAGE));
-  const recipientsOnPage = rcp.slice((recipientPage - 1) * RECIPIENTS_PER_PAGE, recipientPage * RECIPIENTS_PER_PAGE);
 
   function downloadCampaignReport(c: CampaignItem) {
     downloadCsv(
@@ -828,44 +822,28 @@ export default function CampaignsPage() {
             marketing frequency cap). Delivered + Sent + Failed = Total.
           </div>
           {bulkDetail.recipients.length > 0 && (
-            <>
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                  <thead>
-                    <tr style={{ borderBottom: "2px solid var(--border)" }}>
-                      <th style={{ textAlign: "left", padding: "6px 4px", width: 40 }}>#</th>
-                      <th style={{ textAlign: "left", padding: "6px 4px" }}>Phone</th>
-                      <th style={{ textAlign: "left", padding: "6px 4px" }}>Status</th>
-                      <th style={{ textAlign: "left", padding: "6px 4px" }}>Error</th>
+            <div style={{ border: "1px solid var(--border)", borderRadius: 8, maxHeight: 420, overflowY: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                <thead style={{ position: "sticky", top: 0, background: "var(--panel, #fff)", zIndex: 1 }}>
+                  <tr style={{ borderBottom: "2px solid var(--border)" }}>
+                    <th style={{ textAlign: "left", padding: "6px 8px", width: 48 }}>#</th>
+                    <th style={{ textAlign: "left", padding: "6px 8px" }}>Phone</th>
+                    <th style={{ textAlign: "left", padding: "6px 8px" }}>Status</th>
+                    <th style={{ textAlign: "left", padding: "6px 8px" }}>Error</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bulkDetail.recipients.map((r, i) => (
+                    <tr key={r.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                      <td style={{ padding: "6px 8px", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{i + 1}</td>
+                      <td style={{ padding: "6px 8px", fontFamily: "monospace" }}>{r.phone}</td>
+                      <td style={{ padding: "6px 8px" }}><StatusBadge status={r.status} /></td>
+                      <td style={{ padding: "6px 8px", color: "var(--danger)", fontSize: 11 }}>{r.error_message || "—"}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {recipientsOnPage.map((r, i) => (
-                      <tr key={r.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                        <td style={{ padding: "6px 4px", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>
-                          {(recipientPage - 1) * RECIPIENTS_PER_PAGE + i + 1}
-                        </td>
-                        <td style={{ padding: "6px 4px", fontFamily: "monospace" }}>{r.phone}</td>
-                        <td style={{ padding: "6px 4px" }}><StatusBadge status={r.status} /></td>
-                        <td style={{ padding: "6px 4px", color: "var(--danger)", fontSize: 11 }}>{r.error_message || "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {recipientTotalPages > 1 && (
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, gap: 8, flexWrap: "wrap" }}>
-                  <span className="muted" style={{ fontSize: 12 }}>
-                    Showing {(recipientPage - 1) * RECIPIENTS_PER_PAGE + 1}–{Math.min(recipientPage * RECIPIENTS_PER_PAGE, rcp.length)} of {rcp.length}
-                  </span>
-                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                    <button className="btn-mini" disabled={recipientPage <= 1} onClick={() => setRecipientPage((p) => Math.max(1, p - 1))}>← Prev</button>
-                    <span style={{ fontSize: 12 }}>Page {recipientPage} / {recipientTotalPages}</span>
-                    <button className="btn-mini" disabled={recipientPage >= recipientTotalPages} onClick={() => setRecipientPage((p) => Math.min(recipientTotalPages, p + 1))}>Next →</button>
-                  </div>
-                </div>
-              )}
-            </>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}
