@@ -40,6 +40,9 @@ export default function WhatsAppPage() {
   const [regId, setRegId] = useState<string | null>(null);
   const [regPin, setRegPin] = useState("");
   const [registering, setRegistering] = useState(false);
+  // Cooldown after a register attempt. Meta rate-limits repeated registrations
+  // (error #133016), so block rapid re-clicks for a few seconds.
+  const [regCooldown, setRegCooldown] = useState(0);
   const [tokenId, setTokenId] = useState<string | null>(null);
   const [tokenVal, setTokenVal] = useState("");
   const [updatingToken, setUpdatingToken] = useState(false);
@@ -158,8 +161,16 @@ export default function WhatsAppPage() {
       setError((err as ApiError).message);
     } finally {
       setRegistering(false);
+      setRegCooldown(30); // guard against rapid re-clicks (Meta rate-limits #133016)
     }
   }
+
+  // Tick the register cooldown down to zero.
+  useEffect(() => {
+    if (regCooldown <= 0) return;
+    const t = setTimeout(() => setRegCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [regCooldown]);
 
   async function updateToken(id: string) {
     const token = getToken();
@@ -300,8 +311,8 @@ export default function WhatsAppPage() {
                       maxLength={6}
                       style={{ width: 140, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, fontSize: 14, letterSpacing: 4, textAlign: "center" }}
                     />
-                    <button className="btn" style={{ width: "auto", padding: "10px 18px", background: "#ff9800" }} disabled={registering || regPin.length !== 6} onClick={() => registerNumber(n.id)}>
-                      {registering ? "Registering…" : "Register number"}
+                    <button className="btn" style={{ width: "auto", padding: "10px 18px", background: "#ff9800" }} disabled={registering || regPin.length !== 6 || regCooldown > 0} onClick={() => registerNumber(n.id)}>
+                      {registering ? "Registering…" : regCooldown > 0 ? `Wait ${regCooldown}s…` : "Register number"}
                     </button>
                     <span className="muted" style={{ fontSize: 12, width: "100%" }}>
                       Enter a 6-digit PIN for two-step verification. This registers your phone number on the WhatsApp Cloud API so you can send messages.
