@@ -498,8 +498,14 @@ export default function TemplatesPage() {
                         <span style={{ fontSize: 12, fontWeight: 600, color: "#54656f" }}>{BUTTON_TYPES.find((t) => t.value === btn.type)?.label}</span>
                         <button type="button" onClick={() => removeButton(i)} style={{ border: "none", background: "none", color: "#c53030", cursor: "pointer", fontSize: 12 }}>Remove</button>
                       </div>
-                      <input value={btn.text} maxLength={25} placeholder="Button text (max 25)" onChange={(e) => updateButton(i, { text: e.target.value })}
+                      <input value={btn.text} maxLength={25} placeholder={btn.type === "QUICK_REPLY" ? "Button text — this is also the reply value (max 25)" : "Button text (max 25)"} onChange={(e) => updateButton(i, { text: e.target.value })}
                         style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 8, fontSize: 13, marginBottom: btn.type === "QUICK_REPLY" ? 0 : 6 }} />
+                      {btn.type === "QUICK_REPLY" && (
+                        <div className="muted" style={{ fontSize: 11, marginTop: 5, lineHeight: 1.4 }}>
+                          A quick reply has no separate value — when the customer taps it, this exact text is sent back as their
+                          reply. Catch it with a matching <b>Chatbot keyword rule</b> or an <b>Automation keyword trigger</b> to respond automatically.
+                        </div>
+                      )}
                       {btn.type === "URL" && (
                         <input value={btn.url ?? ""} placeholder="https://example.com/{{1}}" onChange={(e) => updateButton(i, { url: e.target.value })}
                           style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 8, fontSize: 13 }} />
