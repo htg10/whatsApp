@@ -816,11 +816,6 @@ export default function CampaignsPage() {
             <div><span className="muted">Sent (awaiting):</span> <span style={{ color: "#667781", fontWeight: 600 }}>{bulkAwaitingN}</span></div>
             <div><span className="muted">Failed:</span> <span style={{ color: "#c53030", fontWeight: 600 }}>{bulkFailedN}</span></div>
           </div>
-          <div className="muted" style={{ fontSize: 12, marginBottom: 10 }}>
-            <b>Delivered</b> = WhatsApp confirmed it reached the phone. <b>Sent (awaiting)</b> = accepted by WhatsApp,
-            delivery not yet confirmed. <b>Failed</b> = WhatsApp did not deliver (e.g. number not on WhatsApp, or
-            marketing frequency cap). Delivered + Sent + Failed = Total.
-          </div>
           {bulkDetail.recipients.length > 0 && (
             <div style={{ border: "1px solid var(--border)", borderRadius: 8, maxHeight: 420, overflowY: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
