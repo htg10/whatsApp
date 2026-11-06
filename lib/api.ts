@@ -450,6 +450,8 @@ export const api = {
       request<{ ai: AiSettings }>("/admin/ai-settings", { token }),
     updateAiSettings: (token: string, body: AiSettingsUpdate) =>
       request<{ ai: AiSettings; message: string }>("/admin/ai-settings", { method: "PUT", body, token }),
+    aiUsage: (token: string, days = 30) =>
+      request<{ usage: AiUsage }>(`/admin/ai-usage?days=${days}`, { token }),
   },
 
   assistant: {
@@ -1057,6 +1059,12 @@ export type AiSettings = {
   gemini_model: string | null;
   openai_model: string | null;
   anthropic_model: string | null;
+  gemini_price_in: number;
+  gemini_price_out: number;
+  openai_price_in: number;
+  openai_price_out: number;
+  anthropic_price_in: number;
+  anthropic_price_out: number;
   has_gemini_key: boolean;
   has_openai_key: boolean;
   has_anthropic_key: boolean;
@@ -1069,9 +1077,26 @@ export type AiSettingsUpdate = {
   gemini_model?: string | null;
   openai_model?: string | null;
   anthropic_model?: string | null;
+  gemini_price_in?: number;
+  gemini_price_out?: number;
+  openai_price_in?: number;
+  openai_price_out?: number;
+  anthropic_price_in?: number;
+  anthropic_price_out?: number;
   gemini_key?: string;
   openai_key?: string;
   anthropic_key?: string;
+};
+
+export type AiUsage = {
+  days: number;
+  total_calls: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_est_cost: number;
+  by_provider: { provider: string; calls: number; input_tokens: number; output_tokens: number; est_cost: number }[];
+  by_model: { provider: string; model: string | null; calls: number; input_tokens: number; output_tokens: number; est_cost: number }[];
+  daily: { date: string; est_cost: number }[];
 };
 
 export type SupportTicket = {
