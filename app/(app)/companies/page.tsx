@@ -21,6 +21,11 @@ export default function CompaniesPage() {
   const [form, setForm] = useState({ ...EMPTY });
   const [submitting, setSubmitting] = useState(false);
 
+  // Search + pagination (client-side; stats cards stay on the full list).
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const PER_PAGE = 15;
+
   // Manage-users (password reset) panel
   const [usersFor, setUsersFor] = useState<Company | null>(null);
   const [companyUsers, setCompanyUsers] = useState<CompanyUser[]>([]);
@@ -154,6 +159,17 @@ export default function CompaniesPage() {
 
   const active = companies.filter((c) => c.status !== "suspended").length;
 
+  const q = search.trim().toLowerCase();
+  const filtered = q
+    ? companies.filter((c) =>
+        (c.name ?? "").toLowerCase().includes(q) ||
+        (c.owner_name ?? "").toLowerCase().includes(q) ||
+        (c.owner_email ?? "").toLowerCase().includes(q))
+    : companies;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const pageSafe = Math.min(page, totalPages);
+  const paged = filtered.slice((pageSafe - 1) * PER_PAGE, pageSafe * PER_PAGE);
+
   return (
     <div>
       <PageHeader
@@ -170,6 +186,17 @@ export default function CompaniesPage() {
         <div className="stat-card"><div className="ic" style={{ background: "#e7f7ef" }}>✅</div><div><div className="sc-label">Active</div><div className="sc-value">{active}</div></div></div>
         <div className="stat-card"><div className="ic" style={{ background: "#fdecec" }}>⛔</div><div><div className="sc-label">Suspended</div><div className="sc-value">{companies.length - active}</div></div></div>
       </div>
+
+      {!loading && companies.length > 0 && (
+        <div style={{ margin: "0 0 14px" }}>
+          <input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            placeholder="Search by company, owner name or email…"
+            style={{ width: "100%", maxWidth: 420, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, fontSize: 14 }}
+          />
+        </div>
+      )}
 
       {loading ? (
         <LoadingBlock label="Loading companies…" />
@@ -194,7 +221,10 @@ export default function CompaniesPage() {
               </tr>
             </thead>
             <tbody>
-              {companies.map((c) => (
+              {paged.length === 0 && (
+                <tr><td colSpan={6} style={{ padding: "20px 14px", textAlign: "center", color: "#667781" }}>No companies match “{search}”.</td></tr>
+              )}
+              {paged.map((c) => (
                 <tr key={c.id} style={{ borderBottom: "1px solid #f4f6f7" }}>
                   <td style={{ padding: "12px 14px", fontWeight: 600 }}>{c.name}</td>
                   <td style={{ padding: "12px 14px" }}>
@@ -227,6 +257,18 @@ export default function CompaniesPage() {
               ))}
             </tbody>
           </table>
+          {totalPages > 1 && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", borderTop: "1px solid #eef1f2", flexWrap: "wrap", gap: 8 }}>
+              <span className="muted" style={{ fontSize: 12 }}>
+                Showing {(pageSafe - 1) * PER_PAGE + 1}–{Math.min(pageSafe * PER_PAGE, filtered.length)} of {filtered.length}
+              </span>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <button className="btn-mini" disabled={pageSafe <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>← Prev</button>
+                <span style={{ fontSize: 12 }}>Page {pageSafe} / {totalPages}</span>
+                <button className="btn-mini" disabled={pageSafe >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Next →</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
