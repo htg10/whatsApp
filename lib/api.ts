@@ -446,6 +446,10 @@ export const api = {
       request<{ settings: InvoiceSettings }>("/admin/settings", { token }),
     updateSettings: (token: string, body: Partial<InvoiceSettings>) =>
       request<{ settings: InvoiceSettings; message: string }>("/admin/settings", { method: "PUT", body, token }),
+    aiSettings: (token: string) =>
+      request<{ ai: AiSettings }>("/admin/ai-settings", { token }),
+    updateAiSettings: (token: string, body: AiSettingsUpdate) =>
+      request<{ ai: AiSettings; message: string }>("/admin/ai-settings", { method: "PUT", body, token }),
   },
 
   assistant: {
@@ -1043,6 +1047,31 @@ export type InvoiceSettings = {
   tax_details: string | null;
   invoice_prefix: string | null;
   gst_rate: number;
+};
+
+export type AiProvider = "gemini" | "openai" | "anthropic";
+
+export type AiSettings = {
+  provider: AiProvider;
+  enabled: boolean;
+  gemini_model: string | null;
+  openai_model: string | null;
+  anthropic_model: string | null;
+  has_gemini_key: boolean;
+  has_openai_key: boolean;
+  has_anthropic_key: boolean;
+};
+
+// Keys are write-only: include a key field only to set/clear it.
+export type AiSettingsUpdate = {
+  provider: AiProvider;
+  enabled: boolean;
+  gemini_model?: string | null;
+  openai_model?: string | null;
+  anthropic_model?: string | null;
+  gemini_key?: string;
+  openai_key?: string;
+  anthropic_key?: string;
 };
 
 export type SupportTicket = {
